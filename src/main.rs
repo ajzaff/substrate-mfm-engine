@@ -1,11 +1,12 @@
 mod lib;
-mod model;
+
+use lib::*;
 
 fn main() {
-  let sites: [lib::Element; 4];
-  let bounds = (2, 2);
+    let mut records = [None; 4];
+    let bounds = (2, 2);
 
-  let m = model::Model::new(&sites, bounds);
+    let m = Grid::new(&mut records[..], bounds);
 
-  println!("Hello, world {:?}!", m);
+    println!("Hello, world {:?}!", m);
 }
