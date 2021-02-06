@@ -68,8 +68,8 @@ A constant typed value can be used wherever a constant expression is expected.
 ```
   5      // unsigned integer by default
   5u     // unsigned integer
-	-1i    // signed integer
-	0b0111 // binary
+  -1i    // signed integer
+  0b0111 // binary
 ```
 
 Boolean `true` and `false` are 1-bit values equivalent to `1u` and `0u`. 
@@ -81,8 +81,8 @@ A label is represented by label name and a `:`.
 ```
   Copy R_0 1
 loop:
-	Add R_0 R_0 R_0
-	Jmp loop
+  Add R_0 R_0 R_0
+  Jmp loop
 ```
 
 Control operands can jump to named labels.
@@ -141,7 +141,7 @@ A leading `#` and an unsigned integer (without the `u`) is used to reference a s
 
 ```
   #0 // self
-	#1 // left, assuming NONE symmetries, or adjacent to me.
+  #1 // left, assuming NONE symmetries, or adjacent to me.
 
 ```
 
