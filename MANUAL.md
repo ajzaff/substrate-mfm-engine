@@ -58,7 +58,6 @@ This is not a comprehensive list.
 ### Misc. requirements
 
 * A program manager _should_ provide globally unique IDs to elements (within the context of a physics).
-* SPLAT bindings and rule storage are optional but are required for compiling from SPLAT.
 
 ### Features
 
@@ -80,9 +79,9 @@ Boolean `true` and `false` are 1-bit values equivalent to `1u` and `0u`.
 A label is represented by label name and a `:`.
 
 ```
-  Copy R0 1
+  Copy R_0 1
 loop:
-	Add R0 R0 R0
+	Add R_0 R_0 R_0
 	Jmp loop
 ```
 
@@ -108,18 +107,31 @@ start:
 
 #### Symmetries
 
-Symmetries simplify the definition of elements with common symmetries.
+Symmetries is supported natively in the engine.
 
-Symmetries apply when window references are used.
+Default symmetries may be specified and symmetries can change at will during program execution.
 
-When a command has window references and symmetry is not `NONE`: the cross-product of 
-candidate sites are dereferenced and sampled uniformly and the first matching permutation
-is used.
+##### Choosing a symmetry
+
+When a command has one or more window references and symmetry is enabled, all valid symmetry settings are sampled from a table at random without replacement.
 
 Symmetries:
 
-* `None`
-* `All`
+|Symmetry Name|Symmetry Type|Notes|
+|-----|-----|-----|
+|`Normal`, `R_000X`|rotation|Default symmetry, disable symmetries. No rotation.|
+|`R_090R`|rotation|90 degrees, clockwise.|
+|`R_180R`|rotation|180 degrees, clockwise.|
+|`R_270R`|rotation|270 degrees, clockwise.|
+|`R_090L`|rotation|90 degrees, counter-clockwise.|
+|`R_180L`|rotation|180 degrees, counter-clockwise.|
+|`R_270L`|rotation|270 degrees, counter-clockwise.|
+|`Flip_X`|flip|Same as `S_180R`|
+|`Flip_Y`|flip|Same as `S_000R`|
+|`Flip_XY`|flip|Same as `S_180L`|
+|`Reflect_X`|reflect|Same as `Normal`, `Flip_X`|
+|`Reflect_Y`|reflect|Same as `Normal`, `Flip_Y`|
+|`All`|convenience|All rotations.|
 
 #### Window Deference
 
@@ -147,9 +159,8 @@ A failure to dereference a field is implementation specific.
 .Field active_count
 .Field is_active 1
 
-  Add R1 $active_count R_SelfData$is_active // R1 = active_count + is_active;
+  Add R_1 $active_count R_SelfData$is_active // R_1 = active_count + is_active;
 ```
-
 
 ##### Builtin Field References
 
@@ -180,73 +191,26 @@ The type of the current element is named `Self` and can be dereferenced using `%
 
 ### Registers
 
-#### R_SelfRaw
-
-Raw element data. Read only.
-
-#### R_SelfType
-
-Element type data. Meaningful within the context of a specific MFM physics.
-
-#### R_SelfHeader
-
-Type and checksum content. Read only.
-
-#### R_SelfChecksum
-
-Checksum of the header content. Read only.
-
-#### R_SelfData
-
-Free element data.
-
-#### R[0-15]
-
-Extra persistant 96-bit registers 0-15.
-
-#### R_UniformRandom
-
-A uniform random number source.
+|Register Name|Description|Usage Notes|
+|--------|---------|--------|
+|`R_[0-15]`|Extra persistant registers 0-15.|96-bits|
+|`R_UniformRandom`|A uniform random source.|96-bits|
 
 ### Metadata
 
-#### .Name `NAME`
+Metadata are fake instructions that are specified once at the start of a program.
 
-The name of the element.
-
-#### .Desc `DESC`
-
-A short description of the element.
-
-#### .Author `AUTHOR`
-
-A repeatable author annotation. One author per line.
-
-#### .License `LICENSE`
-
-A SPDX license name.
-
-#### .Radius `RADIUS`
-
-A radius for the element. Values `[0-4]` are valid.
-
-#### .BgColor `COLOR`
-
-A background color for frontends to use.
-
-#### .FgColor `COLOR`
-
-A foreground color for frontends to use.
-
-#### .Symmetries `SYMMETRIES [SYMMETRIES...]`
-
-The symmetries to use. Defaults to `None`.
-
-#### .Field `NAME` `BIT-LENGTH`
-
-A repeatable field annotation. A field value is a named accessor to element data.
-
-Field layout is implementation dependent.
+|Metadata Signature|Description|Usage Notes|
+|--------|---------|--------|
+|`.Name NAME`|The name of the element.||
+|`.Desc DESC`|A short description of the element.|Repeatable.|
+|`.Author AUTHOR`|An author annotation. One author per line.|Repeatable.|
+|`.License LICENSE`|An SPDX license name.||
+|`.Radius RADIUS`|A maximum radius for the element.|Values `[0-4]` are valid.|
+|`.BgColor COLOR`|A background color for frontends to use.||
+|`.FgColor COLOR`|A foreground color for frontends to use.||
+|`.Symmetries SYMMETRY [SYMMETRIES...]`|Default symmetries to use.|Default is `Normal`.|
+|`.Field NAME BIT-LENGTH`|A named accessor to element data.|Repeatable. Field layout is implementation dependent.|
 
 ### Instructions
 
@@ -262,142 +226,38 @@ Placeholders `SRC`, `LHS`, and `RHS` generally refer to any constant or deferenc
 
 `DST` should be a writeable register, field, or element reference.
 
-#### Nop
-
-Execute an nothing operation.
-
-#### Exit
-
-Exit program immediately.
-
-#### Copy `DST` `SRC`
-
-Store the value of `SRC` into `DST`.
-
-Copy the element at `SRC` to `DST`.
-
-#### Swap `DST` `SRC`
-
-Swap the values of `SRC` and `DST`.
-
-Swap the elements at `SRC` and `DST`.
-
-#### Add `DST` `LHS` `RHS`
-
-Store the result of `LHS + RHS` into `DST`.
-
-#### Sub `DST` `LHS` `RHS`
-
-Store the result of `LHS - RHS` into `DST`.
-
-#### Mul `DST` `LHS` `RHS`
-
-Store the result of `LHS * RHS` into `DST`.
-
-#### Negate `DST` `SRC`
-
-Store the result of `-SRC` (arithmetic) into `DST`.
-
-#### Or `DST` `LHS` `RHS`
-
-Store the result of `LHS || RHS` (logical) into `DST`.
-
-#### And `DST` `LHS` `RHS`
-
-Store the result of `LHS && RHS` (logical) into `DST`.
-
-#### Xor `DST` `LHS` `RHS`
-
-Store the result of `LHS ^ RHS` (logical) into `DST`.
-
-#### Not `DST` `SRC`
-
-Store the result of `!SRC` (logical) into `DST`.
-
-#### Equal `DST` `LHS` `RHS`
-
-Store the result of `LHS == RHS` (logical) into `DST`.
-
-#### Compare `DST` `LHS` `RHS`
-
-Store the result of comparing `LHS` and `RHS`:
-
-* -1 if `LHS < RHS`
-*  0 if `LHS == RHS`
-*  1 if `LHS > RHS`
-
-into `DST` (as a 2s-complement signed value).
-
-#### Jump `LABEL`
-
-Jump to `LABEL` unconditionally.
-
-### JumpRelativeOffset `SRC`
-
-Jump unconditionally a number of instructions forward or backward specified by `SRC` (signed 2s-complement).
-
-#### JumpZero `LABEL` `SRC`
-
-Jump to `LABEL` iff `SRC == 0`.
-
-#### JumpNonZero `LABEL` `SRC`
-
-Jump to `LABEL` iff `SRC <> 0`.
-
-#### JumpLessThanZero `LABEL` `SRC`
-
-Jump to `LABEL` iff `SRC < 0` (`SRC` interpreted as a 2s-complement signed value).
-
-#### JumpGreaterThanZero `LABEL` `SRC`
-
-Jump to `LABEL` iff `SRC > 0` (`SRC` is interpreted as a 2s-complement signed value).
-
-#### BitwiseAnd `DST` `LHS` `RHS`
-
-Store the result of `LHS & RHS` (bitwise) into `DST`.
-
-#### BitwiseOr `DST` `LHS` `RHS`
-
-Store the result of `LHS | RHS` (bitwise) into `DST`.
-
-#### BitwiseNot `DST` `SRC`
-
-Store the result of `^SRC` (bitwise) into `DST`.
-
-#### SPLAT (Spatial rule) Support
-
-SPLAT operations define support for SPLAT binding.
-
-In order to fit the spatial rule blocks into a linear format, we denormalize the representation
-using a few operations designed to be used together hierarchically as if writing XML.
-
-SPLAT operations are evaluated as a block and not counted as individual instructions (for the purposes of `JumpRelativeOffset`).
-
-##### SPLAT_BEGIN
-
-Begin a new SPLAT rule block.
-
-##### SPLAT_RULE `NAME`
-
-Name the SPLAT rule.
-
-##### SPLAT_LET `CHAR`
-
-Implements the `let` statement in SPLAT.
-
-Starts a new normal instruction block up until the next `Exit` in which:
-
-* `R1` is set to the candidate element's raw value.
-* `R2` is set to the candidate element's site number.
-
-The value stored in `R0` (upon evaluating `Exit`) is interpreted as the boolean `let`-predicate result.
-
-The registers are restored after `SPLAT_END`.
-
-###### SPLAT_TRANSFORM `OFFSET` `LHS` `RHS`
-
-Defines a SPLAT transform where `OFFSET` is a window reference (e.g. `#1`) and `LHS` and `RHS` are defined by `SPLAT_LET` blocks.
-
-##### SPLAT_END
-
-End the SPALT rule block.
+|Instruction Name|Instruction Description|Usage Notes|
+|--------|---------|--------|
+|`Nop`|Execute an nothing operation.||
+|`Exit`|Exit the program immediately.||
+|`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the element at `SRC` to `DST`.||
+|`Swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the elements at `SRC` and `DST`.||
+|`UseSymmetries SYM [SYM...]`|Switch to using the given symmetries.||
+|`RestoreSymmetries`|Restore the default symmetries.|When no `.Symmetries` entry is present, this is `Normal`.|
+|`Add DST LHS RHS`|Store the result of `LHS + RHS` into `DST`.||
+|`Sub DST LHS RHS`|Store the result of `LHS - RHS` into `DST`.||
+|`Mul DST LHS RHS`|Store the result of `LHS * RHS` into `DST`.||
+|`Negate DST SRC`|Store the result of `-SRC` (arithmetic) into `DST`.||
+|`Or DST LHS RHS`|Store the result of `LHS || RHS` (logical) into `DST`.||
+|`And DST LHS RHS`|Store the result of `LHS && RHS` (logical) into `DST`.||
+|`Xor DST LHS RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.||
+|`Not DST SRC`|Store the result of `!SRC` (logical) into `DST`.||
+|`Equal DST LHS RHS`|Store the result of `LHS == RHS` (logical) into `DST`.||
+|`BitwiseAnd DST LHS RHS`|Store the result of `LHS & RHS` (bitwise) into `DST`.||
+|`BitwiseOr DST LHS RHS`|Store the result of `LHS | RHS` (bitwise) into `DST`.||
+|`BitwiseNot DST SRC`|Store the result of `^SRC` (bitwise) into `DST`.||
+|`Compare DST LHS RHS`|Store the result of comparing `LHS` and `RHS` (bitwise)|-1 if `LHS < RHS`; 0 if `LHS == RHS`; 1 if `LHS > RHS` into `DST` (as a 2s-complement signed value).|
+|`Jump LABEL`|Jump to `LABEL` unconditionally.||
+|`JumpRelativeOffset SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC`.|`SRC` interpreted as a 2s-complement signed value.|
+|`JumpZero LABEL SRC`|Jump to `LABEL` iff `SRC == 0`.||
+|`JumpNonZero LABEL SRC`|Jump to `LABEL` iff `SRC <> 0`.||
+|`JumpLessThanZero LABEL SRC`|Jump to `LABEL` iff `SRC < 0`.|`SRC` interpreted as a 2s-complement signed value.|
+|`JumpGreaterThanZero LABEL SRC`|Jump to `LABEL` iff `SRC > 0`|`SRC` is interpreted as a 2s-complement signed value.|
+
+### Appendix
+
+#### Compiling SPLAT (spatial rules)
+
+SPLAT provides a way to bind ASCII symbols to conditions and create spatial matching rules using those symbols.
+
+No special instructions should be needed to compile SPLAT.
