@@ -119,13 +119,14 @@ Symmetries:
 
 |Symmetry Name|Symmetry Type|Notes|
 |-----|-----|-----|
-|`Normal`, `R_000X`|rotation|Default symmetry, disable symmetries. No rotation.|
-|`R_090R`|rotation|90 degrees, clockwise.|
-|`R_180R`|rotation|180 degrees, clockwise.|
-|`R_270R`|rotation|270 degrees, clockwise.|
+|`R_000L`, `Normal`|Default symmetry, disable symmetries. No rotation.|
 |`R_090L`|rotation|90 degrees, counter-clockwise.|
 |`R_180L`|rotation|180 degrees, counter-clockwise.|
 |`R_270L`|rotation|270 degrees, counter-clockwise.|
+|`R_000R`|rotation|0 degrees, clockwise flipped.|
+|`R_090R`|rotation|90 degrees, clockwise flipped.|
+|`R_180R`|rotation|180 degrees, clockwise flipped.|
+|`R_270R`|rotation|270 degrees, clockwise flipped.|
 |`Flip_X`|flip|Same as `R_180R`|
 |`Flip_Y`|flip|Same as `R_000R`|
 |`Flip_XY`|flip|Same as `R_180L`|
@@ -242,10 +243,11 @@ Placeholders `SRC`, `LHS`, and `RHS` generally refer to any constant or deferenc
 |`Xor DST LHS RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.||
 |`Not DST SRC`|Store the result of `!SRC` (logical) into `DST`.||
 |`Equal DST LHS RHS`|Store the result of `LHS == RHS` (logical) into `DST`.||
-|`BitwiseAnd DST LHS RHS`|Store the result of `LHS & RHS` (bitwise) into `DST`.||
+|`BitwiseAnd DST LHS RHS`|Store the result of `LHS & RHS` (bitwise) into `DST`.||`
 |`BitwiseOr DST LHS RHS`|Store the result of `LHS | RHS` (bitwise) into `DST`.||
 |`BitwiseNot DST SRC`|Store the result of `^SRC` (bitwise) into `DST`.||
 |`Compare DST LHS RHS`|Store the result of comparing `LHS` and `RHS` (bitwise)|-1 if `LHS < RHS`; 0 if `LHS == RHS`; 1 if `LHS > RHS` into `DST` (as a 2s-complement signed value).|
+|`LShift DST LHS RHS`|Store the result of `LHS << RHS` into `DST`.||
 |`Jump LABEL`|Jump to `LABEL` unconditionally.||
 |`JumpRelativeOffset SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC`.|`SRC` interpreted as a 2s-complement signed value.|
 |`JumpZero LABEL SRC`|Jump to `LABEL` iff `SRC == 0`.||
