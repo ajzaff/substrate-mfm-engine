@@ -142,7 +142,6 @@ A leading `#` and an unsigned integer (without the `u`) is used to reference a s
 ```
   #0 // self
   #1 // left, assuming NONE symmetries, or adjacent to me.
-
 ```
 
 #### Field Dereference
