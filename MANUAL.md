@@ -80,9 +80,9 @@ Boolean `true` and `false` are 1-bit values equivalent to `1u` and `0u`.
 A label is represented by label name and a `:`.
 
 ```
-  Copy R_0 1
+  Copy R0 1
 loop:
-	Add R_0 R_0 R_0
+	Add R0 R0 R0
 	Jmp loop
 ```
 
@@ -147,7 +147,7 @@ A failure to dereference a field is implementation specific.
 .Field active_count
 .Field is_active 1
 
-  Add R_1 $active_count R_SelfData$is_active // R1 = active_count + is_active;
+  Add R1 $active_count R_SelfData$is_active // R1 = active_count + is_active;
 ```
 
 
@@ -200,9 +200,13 @@ Checksum of the header content. Read only.
 
 Free element data.
 
-#### R_[0-15]
+#### R[0-15]
 
 Extra persistant 96-bit registers 0-15.
+
+#### R_UniformRandom
+
+A uniform random number source.
 
 ### Metadata
 
@@ -383,10 +387,12 @@ Implements the `let` statement in SPLAT.
 
 Starts a new normal instruction block up until the next `Exit` in which:
 
-* `R_1` is set to the candidate element's raw value.
-* `R_2` is set to the candidate element's site number.
+* `R1` is set to the candidate element's raw value.
+* `R2` is set to the candidate element's site number.
 
-The value stored in `R_0` (upon evaluating `Exit`) is interpreted as the boolean `let`-predicate result.
+The value stored in `R0` (upon evaluating `Exit`) is interpreted as the boolean `let`-predicate result.
+
+The registers are restored after `SPLAT_END`.
 
 ###### SPLAT_TRANSFORM `OFFSET` `LHS` `RHS`
 
