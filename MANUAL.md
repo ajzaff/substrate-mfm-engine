@@ -126,9 +126,9 @@ Symmetries:
 |`R_090L`|rotation|90 degrees, counter-clockwise.|
 |`R_180L`|rotation|180 degrees, counter-clockwise.|
 |`R_270L`|rotation|270 degrees, counter-clockwise.|
-|`Flip_X`|flip|Same as `S_180R`|
-|`Flip_Y`|flip|Same as `S_000R`|
-|`Flip_XY`|flip|Same as `S_180L`|
+|`Flip_X`|flip|Same as `R_180R`|
+|`Flip_Y`|flip|Same as `R_000R`|
+|`Flip_XY`|flip|Same as `R_180L`|
 |`Reflect_X`|reflect|Same as `Normal`, `Flip_X`|
 |`Reflect_Y`|reflect|Same as `Normal`, `Flip_Y`|
 |`All`|convenience|All rotations.|
@@ -141,7 +141,7 @@ A leading `#` and an unsigned integer (without the `u`) is used to reference a s
 
 ```
   #0 // self
-  #1 // left, assuming NONE symmetries, or adjacent to me.
+  #1 // left, if Normal symmetries; ajdacent, if All symmetries.
 ```
 
 #### Field Dereference
