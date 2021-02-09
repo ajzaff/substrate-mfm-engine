@@ -234,15 +234,15 @@ Instructions fall roughly into one of three informal categories:
 
 Placeholders `DST`, `SRC`, `LHS`, and `RHS` refer to any expression. `DST` should be a writeable.
 
-In multiple data mode: `DST` may refer to multiple sites (by using the `#+` operator with `DST`).
+Instructions support multiple data mode (by using arguments with the `#+` operator), except for noted exceptions.
 
 |Instruction||
 |--------|---------|
 |`Nop`|Execute an nothing operation.|
 |`Exit`|Exit the program immediately.|
-|`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`. In multiple data mode: only one bit should be marked in `SRC`.|
-|`Swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`. In multiple data mode: only one bit should be marked in both `SRC` and `DST`.|
-|`Checksum DST SRC`|Checksum the `SRC` atoms and store 1 if checksum differs; 0 for OK. In multiple data mode: all atoms from `SRC` are checked.|
+|`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
+|`Swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
+|`Checksum DST SRC`|Checksum the `SRC` atoms and store 1 if checksum differs; 0 for OK.|
 |`UseSymmetries SYM [SYM...]`|Switch to using the given symmetries.|
 |`RestoreSymmetries`|Restore the default symmetries; When no `.Symmetries` entry is present, this is `R_000L` (normal).|
 |`Add DST LHS RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
