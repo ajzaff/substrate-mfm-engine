@@ -238,7 +238,7 @@ Placeholders `DST`, `SRC`, `LHS`, and `RHS` refer to any expression. `DST` shoul
 |--------|---------|
 |`Nop`|Execute an nothing operation.|
 |`Exit`|Exit the program immediately.|
-|`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`. In multiple data mode: only one bit should be marked in both `SRC` and `DST`.|
+|`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`. In multiple data mode: only one bit should be marked in `SRC`.|
 |`Swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`. In multiple data mode: only one bit should be marked in both `SRC` and `DST`.|
 |`Checksum DST SRC`|Checksum the `SRC` atoms and store 1 if checksum differs; 0 for OK. In multiple data mode: all atoms from `SRC` are checked.|
 |`UseSymmetries SYM [SYM...]`|Switch to using the given symmetries.|
