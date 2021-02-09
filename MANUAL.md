@@ -61,7 +61,7 @@ Default symmetries may be specified and symmetries can change during execution u
 
 Symmetries affect which sites are referred to.
 
-|Symmetry Name|Type||
+|Symmetry Name|Type|
 |-----|-----|
 |`R_000L`|rotation|Default rotation (normal).|
 |`R_090L`|rotation|90 degrees, counter-clockwise.|
