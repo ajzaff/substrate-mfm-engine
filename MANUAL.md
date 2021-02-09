@@ -84,7 +84,7 @@ A few special operands are provided. They are as follows:
 
 |Operand||
 |-----|-----|
-|`$`|Field operand. Used to access named fields. Also used to coerce types.|
+|`$`|Field operand. Used to access named fields.|
 |`#`|Window operand. Used to access the event window.|
 |`#+`|Multiple data window operand. Used to trigger multiple data access mode.|
 |`%`|Type operand. Used to get the atom's type from its common name.|
