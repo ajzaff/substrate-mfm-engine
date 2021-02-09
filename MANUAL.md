@@ -256,7 +256,7 @@ Instructions support multiple data mode (by using arguments with the `#+` operat
 |`Max DST SRC`|Store the result of maximizing `SRC` into `DST`.|
 |`Argmin DST SRC`|Store the result of computing `argmin SRC` into `DST`.|
 |`Argmax DST SRC`|Store the result of computing `argmax SRC` into `DST`.|
-|`Or DST LHS RHS`|Store the result of `LHS || RHS` (logical) into `DST`.|
+|`Or DST LHS RHS`|Store the result of `LHS \|\| RHS` (logical) into `DST`.|
 |`And DST LHS RHS`|Store the result of `LHS && RHS` (logical) into `DST`.|
 |`Xor DST LHS RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.|
 |`Not DST SRC`|Store the result of `!SRC` (logical) into `DST`.|
@@ -266,7 +266,7 @@ Instructions support multiple data mode (by using arguments with the `#+` operat
 |`LShift DST LHS RHS`|Store the result of `LHS << RHS` (logical) into `DST`.|
 |`RShift DST LHS RHS`|Store the result of `LHS >> RHS` (logical) into `DST`.|
 |`BitwiseAnd DST LHS RHS`|Store the result of `LHS & RHS` (bitwise) into `DST`.|
-|`BitwiseOr DST LHS RHS`|Store the result of `LHS | RHS` (bitwise) into `DST`.|
+|`BitwiseOr DST LHS RHS`|Store the result of `LHS \| RHS` (bitwise) into `DST`.|
 |`BitwiseNot DST SRC`|Store the result of `^SRC` (bitwise) into `DST`.|
 |`BitCount DST SRC`|Store the number of set bits from `SRC` (bitwise) into `DST`.|
 |`BitScanForward DST SRC`|Store the masked LSB from `SRC` (bitwise) into `DST`.|
