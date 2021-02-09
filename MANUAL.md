@@ -251,11 +251,17 @@ Instructions support multiple data mode (by using arguments with the `#+` operat
 |`Negate DST SRC`|Store the result of `-SRC` (arithmetic) into `DST`.|
 |`Mod DST LHS RHS`|Store the result of `LHS % RHS` (arithmetic) into `DST`.|
 |`Div DST LHS RHS`|Store the result of `LHS / RHS` (arithmetic) rounded down into `DST`.|
-|`Compare DST LHS RHS`|Store the result of comparing `LHS` and `RHS` (arithmetic); -1 if `LHS < RHS`; 0 if `LHS == RHS`; 1 if `LHS > RHS` into `DST` (signed).|
+|`Sum DST SRC`|Store the result of summing `SRC` (arithmetic) into `DST`.|
+|`Min DST SRC`|Store the result of minimizing `SRC` into `DST`.|
+|`Max DST SRC`|Store the result of maximizing `SRC` into `DST`.|
+|`Argmin DST SRC`|Store the result of computing `argmin SRC` into `DST`.|
+|`Argmax DST SRC`|Store the result of computing `argmax SRC` into `DST`.|
 |`Or DST LHS RHS`|Store the result of `LHS || RHS` (logical) into `DST`.|
 |`And DST LHS RHS`|Store the result of `LHS && RHS` (logical) into `DST`.|
 |`Xor DST LHS RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.|
 |`Not DST SRC`|Store the result of `!SRC` (logical) into `DST`.|
+|`LessThan DST LHS RHS`|Store the result of comparing `LHS < RHS` (logical) into `DST`.|
+|`LessThanEqual DST LHS RHS`|Store the result of `LHS <= RHS` (logical) into `DST`.|
 |`Equal DST LHS RHS`|Store the result of `LHS == RHS` (logical) into `DST`.|
 |`LShift DST LHS RHS`|Store the result of `LHS << RHS` (logical) into `DST`.|
 |`RShift DST LHS RHS`|Store the result of `LHS >> RHS` (logical) into `DST`.|
@@ -269,5 +275,3 @@ Instructions support multiple data mode (by using arguments with the `#+` operat
 |`JumpRelativeOffset LABEL SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC` (may be signed).|
 |`JumpZero LABEL SRC`|Jump to `LABEL` iff `SRC == 0`.|
 |`JumpNonZero LABEL SRC`|Jump to `LABEL` iff `SRC <> 0`.|
-|`JumpLessThanZero LABEL SRC`|Jump to `LABEL` iff `SRC < 0`.|
-|`JumpGreaterThanZero LABEL SRC`|Jump to `LABEL` iff `SRC > 0`|
