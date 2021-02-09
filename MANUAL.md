@@ -234,6 +234,8 @@ Instructions fall roughly into one of three informal categories:
 
 Placeholders `DST`, `SRC`, `LHS`, and `RHS` refer to any expression. `DST` should be a writeable.
 
+In multiple data mode: `DST` may refer to multiple sites (by using the `#+` operator with `DST`).
+
 |Instruction||
 |--------|---------|
 |`Nop`|Execute an nothing operation.|
