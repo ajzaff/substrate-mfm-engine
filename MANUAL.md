@@ -86,20 +86,20 @@ A few special operands are provided. They are as follows:
 |-----|-----|
 |`$`|Field operand. Used to access named fields.|
 |`#`|Window operand. Used to access the event window.|
-|`#+`|Multiple data window operand. Used to trigger multiple data access mode.|
 |`%`|Type operand. Used to get the atom's type from its common name.|
 
 #### Field Operand (`$`)
 
-`$foo` may be used to get the value stored in the named field `foo`.
-
 Sections of data can be marked as fields using the `.Field` meta-instruction.
 
-This may be appended to the end of any data to access fields in that data.
+`$foo` may be used to get the value stored in the named field `foo`.
 
-While reading: data fields are shifted such that the LSB is zero.
+This expression may be appended to the end of any data to access fields in that data.
 
-While writing: values are likewise corrected, and truncated to fit within `length`-bits.
+* While reading: data fields are shifted such that the LSB is zero.
+* While writing: values are likewise corrected, and truncated to fit within `length`-bits.
+
+Anonymous fields may be referenced using the syntax: `$length(offset)`.
 
 ```
 .Field foo unsigned 1 0 // field named foo; 1-bit length; LSB at position 0.
@@ -108,6 +108,7 @@ While writing: values are likewise corrected, and truncated to fit within `lengt
   $foo$signed // $foo as a signed value.
   R_0$foo     // $foo in R_0.
   #1$foo      // $foo in atom data at site #1.
+  R_1$1(10)   // anonymous field in the 11th bit of R_1.
 
 
 .Field active_count unsigned 4 1
@@ -146,27 +147,10 @@ Symmetries affect what a site number refers to. Namely one of the valid rotation
 ```
   #0       // my atom; full 96-bit data.
   #1       // atom at site #1.
-  #$foo    // atom at $foo.
+  #foo     // atom at site $foo.
 ```
 
 Invalid window locations should appear as empty or otherwise void.
-
-Multiple data mode is triggered by `#+`. This coreces the input to a bit-mask.
-
-```
-  #+$foo   // multiple sites selected from bit-vector $foo.
-  #+%Empty // Empty atom sites.
-  #+%Type  // Type-element sites.
-  #+0x14B7 // explicit marked sites.
-```
-
-|Builtin Fields||
-|-----|-----|
-|`type`|Type number part of the atom.|
-|`checksum`|Checksum part of the atom. Read only.|
-|`header`|Header of the atom (`type` + `checksum`). Read only.|
-|`data`|Data part of the atom.|
-|`signed`|Corece as a signed value.|
 
 #### Type Operand (`%`)
 
@@ -234,43 +218,33 @@ Instructions fall roughly into one of three informal categories:
 
 Placeholders `DST`, `SRC`, `LHS`, and `RHS` refer to any expression. `DST` should be a writeable.
 
-Instructions support multiple data mode (by using arguments with the `#+` operator), except for noted exceptions.
-
 |Instruction||
 |--------|---------|
 |`Nop`|Execute an nothing operation.|
 |`Exit`|Exit the program immediately.|
 |`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
 |`Swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
-|`Checksum DST SRC`|Checksum the `SRC` atoms and store 1 if checksum differs; 0 for OK.|
+|`Scan DST SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask into `DST`.|
+|`Checksum DST SRC`|Checksum the atom at `SRC`. Store the checksum result into `DST`: 1 if checksum differs; 0 otherwise.|
 |`UseSymmetries SYM [SYM...]`|Switch to using the given symmetries.|
 |`RestoreSymmetries`|Restore the default symmetries; When no `.Symmetries` entry is present, this is `R_000L` (normal).|
 |`Add DST LHS RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
 |`Sub DST LHS RHS`|Store the result of `LHS - RHS` (arithmetic) into `DST`.|
-|`Mul DST LHS RHS`|Store the result of `LHS * RHS` (arithmetic) into `DST`.|
 |`Negate DST SRC`|Store the result of `-SRC` (arithmetic) into `DST`.|
 |`Mod DST LHS RHS`|Store the result of `LHS % RHS` (arithmetic) into `DST`.|
+|`Mul DST LHS RHS`|Store the result of `LHS * RHS` (arithmetic) into `DST`.|
 |`Div DST LHS RHS`|Store the result of `LHS / RHS` (arithmetic) rounded down into `DST`.|
-|`Sum DST SRC`|Store the result of summing `SRC` (arithmetic) into `DST`.|
-|`Min DST SRC`|Store the result of minimizing `SRC` into `DST`.|
-|`Max DST SRC`|Store the result of maximizing `SRC` into `DST`.|
-|`Argmin DST SRC`|Store the result of computing `argmin SRC` into `DST`.|
-|`Argmax DST SRC`|Store the result of computing `argmax SRC` into `DST`.|
+|`LessThan DST LHS RHS`|Store the result of comparing `LHS < RHS` (arithmetic) into `DST`.|
+|`LessThanEqual DST LHS RHS`|Store the result of `LHS <= RHS` (arithmetic) into `DST`.|
 |`Or DST LHS RHS`|Store the result of `LHS \|\| RHS` (logical) into `DST`.|
 |`And DST LHS RHS`|Store the result of `LHS && RHS` (logical) into `DST`.|
 |`Xor DST LHS RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.|
-|`Not DST SRC`|Store the result of `!SRC` (logical) into `DST`.|
-|`LessThan DST LHS RHS`|Store the result of comparing `LHS < RHS` (logical) into `DST`.|
-|`LessThanEqual DST LHS RHS`|Store the result of `LHS <= RHS` (logical) into `DST`.|
 |`Equal DST LHS RHS`|Store the result of `LHS == RHS` (logical) into `DST`.|
+|`BitCount DST SRC`|Store the number of set bits from `SRC` (logical) into `DST`.|
+|`BitScanForward DST SRC`|Store the masked LSB index from `SRC` (logical) into `DST`.|
+|`BitScanReverse DST SRC`|Store the masked MSB index from `SRC` (logical) into `DST`.|
 |`LShift DST LHS RHS`|Store the result of `LHS << RHS` (logical) into `DST`.|
 |`RShift DST LHS RHS`|Store the result of `LHS >> RHS` (logical) into `DST`.|
-|`BitwiseAnd DST LHS RHS`|Store the result of `LHS & RHS` (bitwise) into `DST`.|
-|`BitwiseOr DST LHS RHS`|Store the result of `LHS \| RHS` (bitwise) into `DST`.|
-|`BitwiseNot DST SRC`|Store the result of `^SRC` (bitwise) into `DST`.|
-|`BitCount DST SRC`|Store the number of set bits from `SRC` (bitwise) into `DST`.|
-|`BitScanForward DST SRC`|Store the masked LSB from `SRC` (bitwise) into `DST`.|
-|`BitScanReverse DST SRC`|Store the masked MSB from `SRC` (bitwise) into `DST`.|
 |`Jump LABEL`|Jump to `LABEL` unconditionally.|
 |`JumpRelativeOffset LABEL SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC` (may be signed).|
 |`JumpZero LABEL SRC`|Jump to `LABEL` iff `SRC == 0`.|

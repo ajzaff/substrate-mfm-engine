@@ -9,16 +9,16 @@ pub struct Element<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Symmetries {
-  R000L = 1, // Normal
+  R000L = 1, // Normal.
   R090L = 2,
-  R180L = 4, // Flip_XY
+  R180L = 4, // Flip_XY.
   R270L = 8,
-  R000R = 16, // Flip_Y
+  R000R = 16, // Flip_Y.
   R090R = 32,
-  R180R = 64, // Flip_X
+  R180R = 64, // Flip_X.
   R270R = 128,
-  ReflectX = 1 | 4,  // Normal | Flip_X
-  ReflectY = 1 | 16, // Normal | Flip_Y
+  ReflectX = 1 | 4,  // Normal | Flip_X.
+  ReflectY = 1 | 16, // Normal | Flip_Y.
   All = 255,         // All rotations.
 }
 
@@ -27,91 +27,93 @@ pub struct Program<'a> {
   pub instructions: &'a [Instruction],
 }
 
-#[derive(Debug)]
-pub enum Instruction {
+pub type Instruction = u64;
+
+#[repr(u8)]
+pub enum Op {
   Nop,
   Exit,
-  Copy { dst: Expr, src: Expr },
-  Swap { dst: Expr, src: Expr },
-  UseSymmetries(Symmetries),
+  Copy,
+  Swap,
+  Scan,
+  Checksum,
+  UseSymmetries,
   RestoreSymmetries,
-  Add { dst: Expr, lhs: Expr, rhs: Expr },
-  Sub { dst: Expr, lhs: Expr, rhs: Expr },
-  Mul { dst: Expr, lhs: Expr, rhs: Expr },
-  Negate { dst: Expr, src: Expr },
-  Or { dst: Expr, lhs: Expr, rhs: Expr },
-  And { dst: Expr, lhs: Expr, rhs: Expr },
-  Xor { dst: Expr, lhs: Expr, rhs: Expr },
-  Not { dst: Expr, src: Expr },
-  Equal { dst: Expr, lhs: Expr, rhs: Expr },
-  BitwiseAnd { dst: Expr, lhs: Expr, rhs: Expr },
-  BitwiseOr { dst: Expr, lhs: Expr, rhs: Expr },
-  BitwiseNot { dst: Expr, lhs: Expr, rhs: Expr },
-  Compare { dst: Expr, lhs: Expr, rhs: Expr },
-  LShift { dst: Expr, lhs: Expr, rhs: Expr },
-  Jump { label: String, src: Expr },
-  JumpRelativeOffset { label: String, src: Expr },
-  JumpZero { label: String, src: Expr },
-  JumpNonZero { label: String, src: Expr },
-  JumpLessThanZero { label: String, src: Expr },
-  JumpGreaterThanZero { label: String, src: Expr },
+  Add,
+  Sub,
+  Negate,
+  Mod,
+  Mul,
+  Div,
+  LessThan,
+  LessThanEqual,
+  Or,
+  And,
+  Xor,
+  Equal,
+  BitCount,
+  BitScanForward,
+  BitScanReverse,
+  LShift,
+  RShift,
+  Jump,
+  JumpRelativeOffset,
+  JumpZero,
+  JumpNonZero,
 }
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-  Zero,
-  One,
-  I96(i128),
-  U96(u128),
-  Register(RegisterOp),
-  RegisterField(RegisterOp, FieldOp),
-  Site(Site),
-  SiteField(Site, FieldOp),
+  Unsigned(i16),
+  Signed(u16),
+  RegisterField(RegisterExpr, FieldExpr),
+  SiteField(u8, FieldExpr),
 }
 
 impl Expr {
   pub fn is_const(self) -> bool {
     match self {
-      Expr::Zero => true,
-      Expr::One => true,
-      Expr::I96(_) => true,
-      Expr::U96(_) => true,
+      Self::Unsigned(_) => true,
+      Self::Signed(_) => true,
       _ => false,
     }
   }
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub enum RegisterOp {
-  R0 = 0,
-  R1 = 1,
-  R2 = 2,
-  R3 = 3,
-  R4 = 4,
-  R5 = 5,
-  R6 = 6,
-  R7 = 7,
-  R8 = 8,
-  R9 = 9,
-  R10 = 10,
-  R11 = 11,
-  R12 = 12,
-  R13 = 13,
-  R14 = 14,
-  R15 = 15,
-  RUniformRandom = 16,
+pub enum RegisterExpr {
+  R0,
+  R1,
+  R2,
+  R3,
+  R4,
+  R5,
+  R6,
+  R7,
+  R8,
+  R9,
+  R10,
+  R11,
+  R12,
+  R13,
+  R14,
+  R15,
+  RUniformRandom,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct FieldOp {
-  shift: u8,
-  length: u8,
+pub enum FieldExpr {
+  Default,
+  Named(u8),
+  Inline(u8, u8),
 }
 
-impl FieldOp {
+impl FieldExpr {
   pub fn apply_option(self, x: u128) -> Option<u128> {
-    let mask = (1 << self.length - 1) << self.shift;
-    Some(x >> self.shift)
+    match self {
+      Self::Named(x) => None, // TODO: Implement field lookup.
+      Self::Inline(n, p) => Some((x >> p) & ((1 << n) - 1)),
+    }
   }
 }
 
@@ -137,11 +139,11 @@ impl Record<'_> {
     }
   }
 
-  pub fn deref_register_option(&self, op: RegisterOp) -> Option<u128> {
-    if op < RegisterOp::RUniformRandom {
+  pub fn deref_register_option(&self, op: RegisterExpr) -> Option<u128> {
+    if op < RegisterExpr::RUniformRandom {
       return Some(self.registers[op as usize]);
     }
-    if op == RegisterOp::RUniformRandom {
+    if op == RegisterExpr::RUniformRandom {
       return Some(rand::random::<u128>());
     }
     None
@@ -200,8 +202,6 @@ impl<'a> EventWindow<'a> {
     None
   }
 }
-
-pub type Site = u8;
 
 #[derive(Debug)]
 pub struct Grid<'a> {
