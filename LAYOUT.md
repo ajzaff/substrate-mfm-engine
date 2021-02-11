@@ -17,9 +17,9 @@ This appendix document defines the bit layout for the virtual machine.
 
 ## Atoms
 
-||Atom Type|CRC Checksum|Data|
+||Atom Type|ECC Checksum|User State|
 |---|---|---|---|
-|size|16|8|72|
+|size|16|9|71|
 
 ## Arguments
 
