@@ -32,17 +32,25 @@ A constant typed value can be used wherever a constant expression is expected.
 
 ```
   5      // unsigned integer by default
-  5u     // explicit marking may be omitted.
   -1i    // signed integer.
   0b0111 // binary; always unsigned.
   0xffff // hex; always unsigned.
 ```
 
+#### Limits
+
+Constants are limited to 96-bits in size.
+
+||`unsigned`|`signed`|hex|
+|---|---|---|---|
+|Min|`0`|`-2^95`|0x0|
+|Max|`2^96-1`|`2^95-1`|0xFFFFFFFFFFFFFFFFFFFFFFFF|
+
 ### Registers
 
 |Register Name||
 |--------|---------|
-|`R_[0-15]`|Intermediate registers 0-15; 96-bits each.|
+|`R_[0-14]`|Intermediate registers 0-14; 96-bits each.|
 |`R_UniformRandom`|A uniform random source; 96-bits.|
 
 ### Comments
@@ -205,8 +213,11 @@ Meta-instructions are specified once at the start of a program.
 |`.FgColor COLOR`|A foreground color for frontends to use.|
 |`.Symmetries SYMMETRY [SYMMETRIES...]`|Default symmetries to use.|
 |`.Field NAME TYPE POSITION BIT-LENGTH`|A named accessor to element data; Repeatable.|
+|`.Parameter NAME TYPE DEFAULT-VALUE`|A named constant parameter; Repeatable.|
 
 Metadata are read only and not programmatically accessible.
+
+Parameters may be referenced by name to get their values.
 
 ### Instructions
 
@@ -217,6 +228,8 @@ Instructions fall roughly into one of three informal categories:
 * **Control**: Program flow control.
 
 Placeholders `DST`, `SRC`, `LHS`, and `RHS` refer to any expression. `DST` should be a writeable.
+
+Instructions are 64-bits. The layout is defined in [LAYOUT.md](LAYOUT.md).
 
 |Instruction||
 |--------|---------|
