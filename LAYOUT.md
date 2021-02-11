@@ -6,9 +6,9 @@ This appendix document defines the bit layout for the virtual machine.
 
 64-bit instructions.
 
-||Opcode|`DST`|`SRC`/`LHS`|`RHS`|
-|---|---|---|---|---|
-|size|8|16|16|16|
+||Reserved|Opcode|`DST`|`SRC`/`LHS`|`RHS`|
+|---|---|---|---|---|---|
+|size|8|8|16|16|16|
 
 
 ## Registers
