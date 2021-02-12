@@ -35,7 +35,7 @@ Over the following possible value types:
 |Value Enumeration|Value|
 |---|---|
 |Inline|0|
-|Heap (Reference)|1|
+|Heap|1|
 |Register (Reference)|2|
 |Site (Reference)|3|
 
@@ -47,6 +47,12 @@ Constants which cannot be packed into 14-bits are stored in the constant pool on
 
 The meta-instruction `.Parameter` will always use the constant pool.
 
+The heap size is limited by the address space: no more than `2^14` elements.
+
+### Types
+
+Element type numbers are preprocessed into inline constants. In the rare case there are more than `2^14-1` elements, heap slots are used for types.
+
 ### Registers
 
 Registers are referenced by index. 16 registers exist in total, where register 16 (`0xff`) is the read-only uniform random register.
@@ -55,4 +61,4 @@ Registers are referenced by index. 16 registers exist in total, where register 1
 
 Fields are heap allocated and referenced by index. Registers and site references take an optional field part (as seen in the table above) allowing 7-bits for each.
 
-This implies a upper limit of 127 possible fields.
+This implies a upper limit of 122 user-space fields (less 4 builtin fields and 0 being used as a flag value).
