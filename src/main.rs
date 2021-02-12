@@ -3,10 +3,9 @@ mod lib;
 use lib::*;
 
 fn main() {
-    let records = [None; 4];
-    let bounds = (2, 2);
+    let sites = [0; 100];
+    let bounds = (10, 10);
+    let runtimes = [RuntimeState::new(); 2];
 
-    let m = Grid::new(&records[..], bounds);
-
-    println!("Hello, world {:?}!", m);
+    let m = Tile::new(&sites, bounds, &runtimes);
 }

@@ -1,13 +1,16 @@
-#[derive(Debug)]
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+
+#[derive(Copy, Clone)]
 pub struct Element<'a> {
-  pub id: u64,
-  pub name: &'a str,
-  pub symbol: &'a str,
-  pub radius: u8,
-  pub program: Program<'a>,
+  name: &'a str,
+  symbol: &'a str,
+  program: &'a Program<'a>,
+  radius: u8,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
+#[repr(u8)]
 pub enum Symmetries {
   R000L = 1, // Normal.
   R090L = 2,
@@ -17,19 +20,78 @@ pub enum Symmetries {
   R090R = 32,
   R180R = 64, // Flip_X.
   R270R = 128,
-  ReflectX = 1 | 4,  // Normal | Flip_X.
-  ReflectY = 1 | 16, // Normal | Flip_Y.
-  All = 255,         // All rotations.
 }
 
-#[derive(Debug)]
+pub type Atom = u128;
+
+pub fn atom_type(a: Atom) -> u16 {
+  ((a & 0xffff000000000000) >> 24) as u16
+}
+
+#[derive(Copy, Clone)]
+pub struct EventWindow {
+  origin: usize,
+  radius: u8,
+}
+
+impl EventWindow {
+  pub fn new(origin: usize, radius: u8) -> EventWindow {
+    EventWindow {
+      origin: origin,
+      radius: radius,
+    }
+  }
+
+  pub fn reset(&mut self) {
+    self.origin = 0;
+    self.radius = 0;
+  }
+}
+
+#[derive(Copy, Clone)]
+pub struct RuntimeState {
+  ew: EventWindow,
+  registers: [u128; 15],
+  symmetries: Symmetries,
+  ip: usize,
+}
+
+impl RuntimeState {
+  pub fn new() -> RuntimeState {
+    RuntimeState {
+      ew: EventWindow::new(0, 0),
+      registers: [0; 15],
+      symmetries: Symmetries::R000L, // Normal
+      ip: 0,
+    }
+  }
+
+  pub fn reset(&mut self) {
+    self.ew.reset();
+    for i in self.registers.iter_mut() {
+      *i = 0;
+    }
+    self.symmetries = Symmetries::R000L;
+    self.ip = 0;
+  }
+}
+
+#[repr(u8)]
+pub enum DataType {
+  Unsigned,
+  Signed,
+}
+
 pub struct Program<'a> {
-  pub instructions: &'a [Instruction],
+  fields: &'a [Field],
+  consts: &'a [Const],
+  code: &'a [Instruction],
 }
 
 pub type Instruction = u64;
 
 #[repr(u8)]
+#[derive(FromPrimitive)]
 pub enum Op {
   Nop,
   Exit,
@@ -62,22 +124,20 @@ pub enum Op {
   JumpNonZero,
 }
 
-#[derive(Clone, Debug)]
-pub enum Expr {
-  Unsigned(i16),
-  Signed(u16),
-  RegisterField(RegisterExpr, FieldExpr),
-  SiteField(u8, FieldExpr),
+impl Op {
+  fn from_instruction(instr: Instruction) -> Option<Op> {
+    FromPrimitive::from_u64((instr & 0xff000000000000) >> 48)
+  }
 }
 
-impl Expr {
-  pub fn is_const(self) -> bool {
-    match self {
-      Self::Unsigned(_) => true,
-      Self::Signed(_) => true,
-      _ => false,
-    }
-  }
+pub type Arg = u16;
+
+#[repr(u8)]
+pub enum ValueType {
+  Inline,
+  Heap,
+  Register,
+  Site,
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
@@ -97,139 +157,96 @@ pub enum RegisterExpr {
   R12,
   R13,
   R14,
-  R15,
   RUniformRandom,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum FieldExpr {
-  Default,
-  Named(u8),
-  Inline(u8, u8),
+pub struct Field {
+  dtype: DataType,
+  length: u8,
+  offset: u8,
 }
 
-impl FieldExpr {
-  pub fn apply_option(self, x: u128) -> Option<u128> {
-    match self {
-      Self::Named(x) => None, // TODO: Implement field lookup.
-      Self::Inline(n, p) => Some((x >> p) & ((1 << n) - 1)),
-    }
-  }
+pub struct Const {
+  dtype: DataType,
+  value: u128,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct Record<'a> {
-  ev: &'a EventWindow<'a>,
-  elem: &'a Element<'a>,
-  registers: [u128; 16],
-  symmetries: Symmetries,
-  data: u128,
-  ip: u64,
-}
-
-impl Record<'_> {
-  pub fn new<'a>(ev: &'a EventWindow, elem: &'a Element<'a>) -> Record<'a> {
-    Record {
-      ev: ev,
-      elem: elem,
-      registers: [0; 16],
-      symmetries: Symmetries::R000L, // Normal
-      data: 0,
-      ip: 0,
-    }
-  }
-
-  pub fn deref_register_option(&self, op: RegisterExpr) -> Option<u128> {
-    if op < RegisterExpr::RUniformRandom {
-      return Some(self.registers[op as usize]);
-    }
-    if op == RegisterExpr::RUniformRandom {
-      return Some(rand::random::<u128>());
-    }
-    None
-  }
-
-  pub fn deref_expr_option(&self, expr: Expr) -> Option<u128> {
-    match expr {
-      Zero => Some(0),
-      One => Some(1),
-      Expr::I96(x) => Some(x as u128),
-      Expr::U96(x) => Some(x),
-      Expr::Register(op) => self.deref_register_option(op),
-      Expr::RegisterField(op, field) => {
-        let x = self.deref_register_option(op);
-        if x.is_some() {
-          return field.apply_option(x.unwrap());
-        }
-        None
-      }
-      Expr::Site(x) => Some(x as u128),
-      Expr::SiteField(x, field) => {
-        let site = self.ev.get_site_option(x);
-        if site.is_some() {
-          return field.apply_option(site.unwrap().data);
-        }
-        None
-      }
-    }
-  }
-}
-
-#[derive(Debug)]
-pub struct EventWindow<'a> {
-  radius: u8,
-  origin: u64,
-  grid: &'a Grid<'a>,
-}
-
-impl<'a> EventWindow<'a> {
-  pub fn new_radius(radius: u8, origin: u64, grid: &'a Grid<'a>) -> EventWindow<'a> {
-    EventWindow {
-      radius: radius,
-      origin: origin,
-      grid: grid,
-    }
-  }
-  pub fn new(origin: u64, grid: &'a Grid<'a>) -> EventWindow<'a> {
-    Self::new_radius(4, origin, grid)
-  }
-
-  pub fn get_site_option(&self, x: Site) -> Option<&'a Record<'a>> {
-    if x < 41 {
-      // TODO: use self.radius
-      return self.grid.records[x as usize];
-    }
-    None
-  }
-}
-
-#[derive(Debug)]
-pub struct Grid<'a> {
-  records: &'a [Option<&'a Record<'a>>],
+pub struct Tile<'a> {
+  sites: &'a [Atom],
   bounds: (u16, u16),
+  physics: Physics<'a>,
 }
 
-impl<'a> Grid<'a> {
-  pub fn new(records: &'a [Option<&'a Record<'a>>], bounds: (u16, u16)) -> Grid<'a> {
-    Grid {
-      records: records,
+impl<'a> Tile<'a> {
+  pub fn new(sites: &'a [Atom], bounds: (u16, u16), physics: Physics<'a>) -> Tile<'a> {
+    Tile {
+      sites: sites,
       bounds: bounds,
+      physics: physics,
     }
   }
+}
 
-  pub fn is_valid(&self, i: usize) -> bool {
-    i < self.records.len()
+pub struct Physics<'a> {
+  elements: &'a [Element<'a>],
+}
+
+pub fn step(tile: &Tile, runtime: &RuntimeState) {
+  let ew = runtime.ew;
+
+  if ew.origin >= tile.sites.len() {
+    return; // TODO: return an error.
   }
 
-  pub fn get_site_option(&self, i: usize, x: Site) -> Option<usize> {
-    if self.is_valid(i) {}
-    None
+  let a = tile.sites[ew.origin];
+  let t = atom_type(a);
+
+  if (t as usize) >= tile.physics.elements.len() {
+    return; // TODO: return an error.
   }
 
-  pub fn get_record_option(&self, i: usize) -> Option<&'a Record<'a>> {
-    if self.is_valid(i) {
-      return self.records[i];
-    }
-    None
+  let elem = tile.physics.elements[t as usize];
+  let prog = elem.program;
+
+  if runtime.ip >= prog.code.len() {
+    return; // TODO: return an error.
+  }
+
+  let instr = prog.code[runtime.ip];
+  let op = Op::from_instruction(instr);
+
+  match op {
+    Some(x) => match x {
+      Nop => return,
+      Exit => return, // TODO: return exit code.
+      Copy => return,
+      Swap => return,
+      Scan => return,
+      Checksum => return,
+      UseSymmetries => return,
+      RestoreSymmetries => return,
+      Add => return,
+      Sub => return,
+      Negate => return,
+      Mod => return,
+      Mul => return,
+      Div => return,
+      LessThan => return,
+      LessThanEqual => return,
+      Or => return,
+      And => return,
+      Xor => return,
+      Equal => return,
+      BitCount => return,
+      BitScanForward => return,
+      BitScanReverse => return,
+      LShift => return,
+      RShift => return,
+      Jump => return,
+      JumpRelativeOffset => return,
+      JumpZero => return,
+      JumpNonZero => return,
+    },
+    None => return, // TODO return an error.
   }
 }
