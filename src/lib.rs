@@ -1,19 +1,20 @@
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use std::vec::Vec;
 
 #[derive(Copy, Clone)]
 pub struct Element<'a> {
   name: &'a str,
   symbol: &'a str,
-  program: &'a Program<'a>,
+  program: Program<'a>,
   radius: u8,
 }
 
 impl<'a> Element<'a> {
-  const Empty: &'a Element<'a> = &Self {
+  const EMPTY: &'a Element<'a> = &Self {
     name: "Empty",
     symbol: " ",
-    program: &Program::new(),
+    program: Program::EMPTY,
     radius: 0,
   };
 }
@@ -31,11 +32,26 @@ pub enum Symmetries {
   R270R = 128,
 }
 
+#[derive(Copy, Clone, Debug, FromPrimitive)]
+pub struct Site(u8);
+
+impl Site {
+  pub const LIMIT: usize = 41;
+
+  pub fn from_usize(x: usize) -> Option<Site> {
+    if x < Self::LIMIT {
+      FromPrimitive::from_usize(x)
+    } else {
+      None
+    }
+  }
+}
+
 #[derive(Copy, Clone)]
-struct Atom(u128);
+pub struct Atom(u128);
 
 impl Atom {
-  const Mask: u128 = 0xffffffffffffffffffffffff;
+  pub const MASK: u128 = 0xffffffffffffffffffffffff;
 
   pub fn get_type(self) -> u16 {
     ((self.0 & 0xffff000000000000) >> 24) as u16
@@ -74,26 +90,29 @@ impl EventWindow {
   }
 }
 
-#[derive(Copy, Clone)]
 pub struct Runtime<'a> {
   ew: EventWindow,
   elem: &'a Element<'a>,
-  tile: &'a Tile<'a>,
+  tile: &'a mut Tile<'a>,
   physics: Physics<'a>,
   registers: [u128; 16],
-  symmetries: Symmetries,
+  heap: Vec<u128>,
+  default_symmetries: Symmetries,
+  current_symmetries: Symmetries,
   ip: usize,
 }
 
 impl<'a> Runtime<'a> {
-  pub fn new(tile: &'a Tile<'a>, physics: Physics<'a>) -> Self {
+  pub fn new(tile: &'a mut Tile<'a>, physics: Physics<'a>) -> Self {
     Self {
       ew: EventWindow::new(0, 0),
-      elem: Element::Empty,
+      elem: Element::EMPTY,
       tile: tile,
       physics: physics,
       registers: [0; 16],
-      symmetries: Symmetries::R000L, // Normal
+      heap: Vec::new(),
+      default_symmetries: Symmetries::R000L, // Normal
+      current_symmetries: Symmetries::R000L,
       ip: 0,
     }
   }
@@ -103,89 +122,187 @@ impl<'a> Runtime<'a> {
     for i in self.registers.iter_mut() {
       *i = 0;
     }
-    self.symmetries = Symmetries::R000L;
+    self.default_symmetries = Symmetries::R000L;
+    self.current_symmetries = Symmetries::R000L;
     self.ip = 0;
   }
 
-  pub fn heap_lookup(&self, i: usize) -> Option<u128> {
-    return Some(0);
+  pub fn get_value_mut(&mut self, x: Value) -> Result<&mut u128, &'static str> {
+    match x.vtype {
+      Some(ValueType::Inline) => Err("inline value is immutable"),
+      Some(ValueType::Heap) => Err("heap value is immutable"),
+      Some(ValueType::Register) => match Register::from_usize(x.data as usize) {
+        Some(Register::RUniformRandom) => Err("random register is immutable"),
+        Some(x) => Ok(&mut self.registers[x as usize]),
+        None => Err("bad register argument"),
+      },
+      Some(ValueType::Site) => match Site::from_usize(x.data as usize) {
+        Some(x) => Ok(&mut self.tile.sites[x.0 as usize].0),
+        None => Err("bad site number"),
+      },
+      None => Err("bad argument type"),
+    }
   }
 
-  pub fn register_lookup(&self, i: usize) -> Option<u128> {
-    let r = Register::from_usize(i);
-    if r.is_none() {
-      return None;
+  pub fn get_value(&self, x: Value) -> Result<u128, &'static str> {
+    match x.vtype {
+      Some(ValueType::Inline) => Ok(x.data as u128),
+      Some(ValueType::Heap) => Ok(self.heap[x.data as usize]),
+      Some(ValueType::Register) => match Register::from_usize(x.data as usize) {
+        Some(Register::RUniformRandom) => Ok(rand::random::<u128>() & Atom::MASK),
+        Some(x) => Ok(self.registers[x as usize]),
+        None => Err("bad register argument"),
+      },
+      Some(ValueType::Site) => match Site::from_usize(x.data as usize) {
+        Some(x) => Ok(self.tile.sites[x.0 as usize].0),
+        None => Err("bad site number"),
+      },
+      None => Err("bad argument type"),
     }
-    if r.unwrap() == Register::RUniformRandom {
-      self.registers[Register::RUniformRandom as usize] = rand::random::<u128>() & Atom::Mask;
-    }
-    return Some(self.registers[r.unwrap() as usize]);
   }
 
   pub fn use_symmetries(&mut self, symmetries: Symmetries) {
-    self.symmetries = symmetries
+    self.current_symmetries = symmetries
   }
 
-  pub fn copy(r: &mut Runtime, dst: Arg, src: Arg) -> Result<(), &'static str> {
-    match dst.vtype {
-      Some(ValueType::Inline) => Err("inline value is not writeable"),
-      Some(ValueType::Heap) => Err("heap value is not writeable"),
-      Some(ValueType::Register) => {
-        let lookup = ValueType::value_to_usize_field(dst.data);
-        match Register::from_usize(lookup.0) {
-          Some(Register::RUniformRandom) => return Err("random register is not writeable"),
-          Some(_) => (),
-          None => return Err("bad destination register"),
-        }
-        let val: Option<u128> = match src.vtype {
-          Some(ValueType::Inline) => Some(src.data as u128),
-          Some(ValueType::Heap) => self.heap_lookup(src.data as usize),
-          Some(ValueType::Register) => Some(0),
-          Some(ValueType::Site) => Some(0),
-          None => return Err("bad source value type"),
-        };
-        if val.is_none() {
-          return Err("bad source value");
-        }
-        match lookup.1 {
-          Some(_) => {}
-          None => r.registers[lookup.0] = val.unwrap(),
-        }
-      }
-      Some(ValueType::Site) => {
-        let lookup = ValueType::value_to_usize_field(dst.1);
-      }
-      None => Err("bad destination value type"),
+  pub fn restore_symmetries(&mut self) {
+    self.current_symmetries = self.default_symmetries
+  }
+
+  pub fn copy(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
+    let x = r.get_value_mut(dst);
+    if x.is_err() {
+      return Err(x.unwrap_err());
     }
-  }
-
-  pub fn swap(r: &mut Runtime, dst: Arg, src: Arg) -> Result<(), &'static str> {
+    let y = r.get_value_mut(src); // TODO: Fix me
+    if y.is_err() {
+      return Err(y.unwrap_err());
+    }
+    *x.unwrap() = *y.unwrap();
     Ok(())
   }
 
-  pub fn scan(r: &mut Runtime, dst: Arg, src: Arg) -> Result<(), &'static str> {
+  pub fn swap(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
     Ok(())
   }
 
-  pub fn checksum(r: &mut Runtime, dst: Arg, src: Arg) -> Result<(), &'static str> {
+  pub fn scan(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn checksum(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn add(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn sub(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn negate(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn modulo(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn mul(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn div(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn less_than(
+    r: &mut Runtime,
+    dst: Value,
+    lhs: Value,
+    rhs: Value,
+  ) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn less_than_equal(
+    r: &mut Runtime,
+    dst: Value,
+    lhs: Value,
+    rhs: Value,
+  ) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn or(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn and(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn xor(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn equal(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn bit_count(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn bit_scan_forward(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn bit_scan_reverse(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn lshift(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn rshift(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn jump(r: &mut Runtime, label: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn jump_relative_offset(r: &mut Runtime, dst: Value, lhs: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn jump_zero(r: &mut Runtime, label: Value, src: Value) -> Result<(), &'static str> {
+    Ok(())
+  }
+
+  pub fn jump_non_zero(r: &mut Runtime, label: Value, src: Value) -> Result<(), &'static str> {
     Ok(())
   }
 
   pub fn step(r: &mut Runtime) -> Result<(), &'static str> {
     let ew = r.ew;
 
-    if ew.origin >= tile.sites.len() {
+    if ew.origin >= r.tile.sites.len() {
       return Err("bad origin site");
     }
 
-    let a = tile.sites[ew.origin];
-    let t = atom_type(a);
+    let a = r.tile.sites[ew.origin];
+    let t = a.get_type();
 
-    if (t as usize) >= tile.physics.elements.len() {
+    if (t as usize) >= r.tile.physics.elements.len() {
       return Err("bad origin atom type");
     }
 
-    let elem = tile.physics.elements[t as usize];
+    let elem = r.tile.physics.elements[t as usize];
     let prog = elem.program;
 
     if r.ip >= prog.code.len() {
@@ -202,30 +319,28 @@ impl<'a> Runtime<'a> {
       Some(Op::Swap) => Runtime::swap(r, instr.dst, instr.lhs),
       Some(Op::Scan) => Runtime::scan(r, instr.dst, instr.lhs),
       Some(Op::Checksum) => Runtime::checksum(r, instr.dst, instr.lhs),
-      Some(Op::UseSymmetries) => r.use_symmetries(),
-      Some(Op::RestoreSymmetries) => return,
-      Some(Op::Add) => return,
-      Some(Op::Sub) => return,
-      Some(Op::Negate) => return,
-      Some(Op::Mod) => return,
-      Some(Op::Mul) => return,
-      Some(Op::Div) => return,
-      Some(Op::LessThan) => return,
-      Some(Op::LessThanEqual) => return,
-      Some(Op::Or) => return,
-      Some(Op::And) => return,
-      Some(Op::Xor) => return,
-      Some(Op::Equal) => return,
-      Some(Op::BitCount) => return,
-      Some(Op::BitScanForward) => return,
-      Some(Op::BitScanReverse) => return,
-      Some(Op::LShift) => return,
-      Some(Op::RShift) => return,
-      Some(Op::Jump) => return,
-      Some(Op::JumpRelativeOffset) => return,
-      Some(Op::JumpZero) => return,
-      Some(Op::JumpNonZero) => return,
-      None => return, // TODO return an error.
+      Some(Op::Add) => Runtime::add(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Sub) => Runtime::sub(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Negate) => Runtime::negate(r, instr.dst, instr.lhs),
+      Some(Op::Mod) => Runtime::modulo(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Mul) => Runtime::mul(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Div) => Runtime::div(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::LessThan) => Runtime::less_than(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::LessThanEqual) => Runtime::less_than_equal(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Or) => Runtime::or(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::And) => Runtime::and(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Xor) => Runtime::xor(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Equal) => Runtime::equal(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::BitCount) => Runtime::bit_count(r, instr.dst, instr.lhs),
+      Some(Op::BitScanForward) => Runtime::bit_scan_forward(r, instr.dst, instr.lhs),
+      Some(Op::BitScanReverse) => Runtime::bit_scan_reverse(r, instr.dst, instr.lhs),
+      Some(Op::LShift) => Runtime::lshift(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::RShift) => Runtime::rshift(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Jump) => Runtime::jump(r, instr.dst),
+      Some(Op::JumpRelativeOffset) => Runtime::jump_relative_offset(r, instr.dst, instr.lhs),
+      Some(Op::JumpZero) => Runtime::jump_zero(r, instr.dst, instr.lhs),
+      Some(Op::JumpNonZero) => Runtime::jump_non_zero(r, instr.dst, instr.lhs),
+      None => Err("bad op"),
     }
   }
 }
@@ -236,53 +351,88 @@ pub enum DataType {
   Signed,
 }
 
+#[derive(Copy, Clone)]
 pub struct Program<'a> {
-  fields: &'a [Field],
-  consts: &'a [Const],
   code: &'a [Instruction],
 }
 
 impl<'a> Program<'a> {
+  const EMPTY: Program<'a> = Self { code: &[] };
+
   pub fn new() -> Self {
-    Self {
-      fields: &[],
-      consts: &[],
-      code: &[],
-    }
+    Self { code: &[] }
   }
 }
 
 #[derive(Copy, Clone)]
 pub struct Instruction {
   pub op: Option<Op>,
-  pub dst: Arg,
-  pub lhs: Arg,
-  pub rhs: Arg,
+  pub dst: Value,
+  pub lhs: Value,
+  pub rhs: Value,
 }
 
 impl Instruction {
   pub fn from_u64(x: u64) -> Self {
     Self {
       op: FromPrimitive::from_u64((x & 0xff000000000000) >> 48),
-      dst: Arg::from_u16(((x & 0xffff00000000) >> 32) as u16),
-      lhs: Arg::from_u16(((x & 0xffff0000) >> 16) as u16),
-      rhs: Arg::from_u16((x & 0xffff) as u16),
+      dst: Value::from_u16(((x & 0xffff00000000) >> 32) as u16),
+      lhs: Value::from_u16(((x & 0xffff0000) >> 16) as u16),
+      rhs: Value::from_u16((x & 0xffff) as u16),
     }
   }
 }
 
 #[derive(Copy, Clone)]
-pub struct Arg {
-  pub vtype: Option<ValueType>,
-  pub data: u16,
+pub struct Value {
+  vtype: Option<ValueType>,
+  data: u16,
 }
 
-impl Arg {
+impl Value {
   pub fn from_u16(x: u16) -> Self {
     Self {
-      vtype: ValueType::from_u8(((x & 0xc000) >> 14) as u8),
-      data: x & 0x3fff,
+      vtype: ValueType::from_u8(((x & 0xc000) >> 12) as u8),
+      data: x & 0xfff,
     }
+  }
+
+  pub fn get_value(self) -> Option<u16> {
+    match self.vtype {
+      Some(ValueType::Inline) => Some(self.data),
+      _ => None,
+    }
+  }
+
+  pub fn get_reference(self) -> Option<usize> {
+    match self.vtype {
+      Some(ValueType::Heap) => Some(self.data as usize),
+      Some(ValueType::Register) => Some(((self.data & 0x3f80) >> 7) as usize),
+      Some(ValueType::Site) => Some(((self.data & 0x3f80) >> 7) as usize),
+      _ => None,
+    }
+  }
+
+  pub fn get_field(self) -> Option<usize> {
+    match self.vtype {
+      Some(ValueType::Register) => Some((self.data & 0x7f) as usize),
+      Some(ValueType::Site) => Some((self.data & 0x7f) as usize),
+      _ => None,
+    }
+  }
+}
+
+#[derive(Copy, Clone, FromPrimitive)]
+pub enum ValueType {
+  Inline,
+  Heap,
+  Register,
+  Site,
+}
+
+impl ValueType {
+  pub fn from_u8(x: u8) -> Option<ValueType> {
+    FromPrimitive::from_u8(x)
   }
 }
 
@@ -295,8 +445,6 @@ pub enum Op {
   Swap,
   Scan,
   Checksum,
-  UseSymmetries,
-  RestoreSymmetries,
   Add,
   Sub,
   Negate,
@@ -320,31 +468,7 @@ pub enum Op {
   JumpNonZero,
 }
 
-#[repr(u8)]
-#[derive(Copy, Clone, FromPrimitive)]
-pub enum ValueType {
-  Inline,
-  Heap,
-  Register,
-  Site,
-}
-
-impl ValueType {
-  fn from_u8(x: u8) -> Option<Self> {
-    FromPrimitive::from_u8(x)
-  }
-
-  fn value_to_usize_field(x: u16) -> (usize, Option<usize>) {
-    let i = ((x & 0x3f80) >> 7) as usize;
-    let f = (x & 0x7f) as usize;
-    if f == 0 {
-      return (i, None);
-    }
-    (i, Some(f))
-  }
-}
-
-#[derive(Copy, Clone, PartialEq, PartialOrd, FromPrimitive, ToPrimitive)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, FromPrimitive)]
 pub enum Register {
   R0,
   R1,
@@ -382,13 +506,13 @@ pub struct Const {
 }
 
 pub struct Tile<'a> {
-  sites: &'a [Atom],
+  sites: &'a mut [Atom],
   bounds: (u16, u16),
   physics: Physics<'a>,
 }
 
 impl<'a> Tile<'a> {
-  pub fn new(sites: &'a [Atom], bounds: (u16, u16), physics: Physics<'a>) -> Tile<'a> {
+  pub fn new(sites: &'a mut [Atom], bounds: (u16, u16), physics: Physics<'a>) -> Tile<'a> {
     Tile {
       sites: sites,
       bounds: bounds,
