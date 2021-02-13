@@ -170,9 +170,12 @@ impl<'a> Runtime<'a> {
   }
 
   pub fn copy(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    let x = r.get_value_mut(dst);
-    if x.is_err() {
-      return Err(x.unwrap_err());
+    let x: Result<&mut u128, &'static str>;
+    {
+      x = r.get_value_mut(dst);
+      if x.is_err() {
+        return Err(x.unwrap_err());
+      }
     }
     let y = r.get_value_mut(src); // TODO: Fix me
     if y.is_err() {
