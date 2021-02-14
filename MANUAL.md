@@ -200,7 +200,7 @@ exit:
 
 ### Metadata
 
-Meta-instructions are generally specified once at the start of a program (with the exception of changing symmetries).
+Meta-instructions are generally specified once at the start of a program.
 
 |Metadata||
 |--------|--------|
@@ -212,8 +212,6 @@ Meta-instructions are generally specified once at the start of a program (with t
 |`.BgColor COLOR`|A background color for frontends to use.|
 |`.FgColor COLOR`|A foreground color for frontends to use.|
 |`.Symmetries SYMMETRY [SYMMETRIES...]`|Default symmetries to use.|
-|`.UseSymmetries SYM [SYM...]`|Switch to using the given symmetries.|
-|`.RestoreSymmetries`|Restore the default symmetries; When no `.Symmetries` entry is present, this is `R_000L` (normal).|
 |`.Field NAME TYPE POSITION BIT-LENGTH`|A named accessor to element data; Repeatable.|
 |`.Parameter NAME TYPE DEFAULT-VALUE`|A named constant parameter; Repeatable.|
 
@@ -240,6 +238,8 @@ Instructions are 64-bits. The layout is defined in [LAYOUT.md](LAYOUT.md).
 |`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
 |`Swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
 |`Scan DST SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask into `DST`.|
+|`UseSymmetries SYM [SYM...]`|Switch to using the given symmetries.|
+|`RestoreSymmetries`|Restore the original default symmetries; When no `.Symmetries` entry is present, this is `R_000L` (normal).|
 |`Checksum DST SRC`|Checksum the atom at `SRC`. Store the checksum result into `DST`: 1 if checksum differs; 0 otherwise.|
 |`Add DST LHS RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
 |`Sub DST LHS RHS`|Store the result of `LHS - RHS` (arithmetic) into `DST`.|
