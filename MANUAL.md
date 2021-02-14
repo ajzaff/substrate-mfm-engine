@@ -205,6 +205,7 @@ Meta-instructions are generally specified once at the start of a program.
 |Metadata||
 |--------|--------|
 |`.Name NAME`|The name of the element.|
+|`.Symbol SYMBOL`|A symbol for the element.|
 |`.Desc DESC`|A short description of the element; Repeatable.|
 |`.Author AUTHOR`|An author annotation. One author per line; Repeatable.|
 |`.License LICENSE`|An SPDX license name.|

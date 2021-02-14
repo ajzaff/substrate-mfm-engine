@@ -4,24 +4,64 @@ use std::vec::Vec;
 
 #[derive(Copy, Clone)]
 pub struct Element<'a> {
-  name: &'a str,
-  symbol: &'a str,
-  program: Program<'a>,
-  radius: u8,
+  props: &'a ElementProperties<'a>,
+  program: &'a Program<'a>,
 }
 
 impl<'a> Element<'a> {
   const EMPTY: &'a Element<'a> = &Self {
+    props: ElementProperties::EMPTY,
+    program: Program::EMPTY,
+  };
+}
+
+#[derive(Copy, Clone)]
+pub struct ElementProperties<'a> {
+  name: &'a str,
+  symbol: &'a str,
+  desc: &'a str,
+  authors: &'a [&'a str],
+  license: &'a str,
+  radius: usize,
+  bg_color: &'a str,
+  fg_color: &'a str,
+  symmetries: Symmetries,
+  fields: &'a [NamedField<'a>],
+  params: &'a [NamedParameter<'a>],
+}
+
+impl<'a> ElementProperties<'a> {
+  const EMPTY: &'a ElementProperties<'a> = &Self {
     name: "Empty",
     symbol: " ",
-    program: Program::EMPTY,
+    desc: "Empty.",
+    authors: &[],
+    license: "",
     radius: 0,
+    bg_color: "#000",
+    fg_color: "#000",
+    symmetries: Symmetries::None,
+    fields: &[],
+    params: &[],
   };
+}
+
+#[derive(Copy, Clone)]
+pub struct NamedField<'a> {
+  name: &'a str,
+  field: Field,
+}
+
+#[derive(Copy, Clone)]
+pub struct NamedParameter<'a> {
+  name: &'a str,
+  value: u128,
 }
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
 pub enum Symmetries {
+  None = 0,
   R000L = 1, // Normal.
   R090L = 2,
   R180L = 4, // Flip_XY.
@@ -30,6 +70,7 @@ pub enum Symmetries {
   R090R = 32,
   R180R = 64, // Flip_X.
   R270R = 128,
+  All = 255,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
@@ -52,50 +93,93 @@ pub struct Atom(u128);
 
 impl Atom {
   pub const MASK: u128 = 0xffffffffffffffffffffffff;
+  pub const TYPE_MASK: u128 = 0xffff00000000000000000000;
+  pub const ECC_MASK: u128 = 0xff800000000000000000;
+  pub const HEADER_MASK: u128 = Self::TYPE_MASK | Self::ECC_MASK;
+  pub const USER_MASK: u128 = 0xfffffffffffffffff;
 
   pub fn get_type(self) -> u16 {
-    ((self.0 & 0xffff000000000000) >> 24) as u16
+    ((self.0 & Self::TYPE_MASK) >> 24) as u16
   }
 
   pub fn get_ecc(self) -> u16 {
-    ((self.0 & 0xff8000000000) >> 15) as u16
+    ((self.0 & Self::ECC_MASK) >> 15) as u16
   }
 
   pub fn get_header(self) -> u32 {
-    ((self.0 & 0xffffff8000000000) >> 15) as u32
+    ((self.0 & Self::HEADER_MASK) >> 15) as u32
   }
 
   pub fn get_state(self) -> u128 {
-    (self.0 & 0x7fffffffffffffffff) as u128
+    (self.0 & Self::USER_MASK) as u128
   }
 }
 
-#[derive(Copy, Clone)]
-pub struct EventWindow {
+pub struct EventWindow<'a> {
+  tile: &'a mut Tile<'a>,
   origin: usize,
-  radius: u8,
+  radius: usize,
 }
 
-impl EventWindow {
-  pub fn new(origin: usize, radius: u8) -> EventWindow {
+impl<'a> EventWindow<'a> {
+  pub fn new(tile: &'a mut Tile<'a>, origin: usize, radius: usize) -> EventWindow<'a> {
     EventWindow {
+      tile: tile,
       origin: origin,
       radius: radius,
     }
   }
 
-  pub fn reset(&mut self) {
-    self.origin = 0;
-    self.radius = 0;
+  fn set_origin(&mut self, i: usize) {
+    self.origin = i
+  }
+
+  fn set_radius(&mut self, i: usize) {
+    self.radius = i
+  }
+
+  const ys: [i32; 41] = [
+    0, 0, -1, 1, 0, -1, 1, -1, 1, 0, -2, 2, 0, -1, 1, -2, 2, -2, 2, -1, 1, 0, -3, 3, 0, -2, 2, -2,
+    2, -1, 1, -3, 3, -3, 3, -1, 1, 0, -4, 4, 0,
+  ];
+  const xs: [i32; 41] = [
+    0, -1, 0, 0, 1, -1, -1, 1, 1, -2, 0, 0, 2, -2, -2, -1, -1, 1, 1, 2, 2, -3, 0, 0, 3, -2, -2, 2,
+    2, -3, -3, -1, -1, 1, 1, 3, 3, -4, 0, 0, 4,
+  ];
+
+  fn add_sites_on_tile(&self, i: usize, delta: usize) -> Option<usize> {
+    let dx = Self::xs[delta];
+    let x = (i as u16) % self.tile.bounds.0;
+    let new_x = x as i32 + dx;
+    if new_x < 0 || new_x >= self.tile.bounds.0 as i32 {
+      return None;
+    }
+    let dy = Self::ys[delta];
+    let y = (i as u16) / self.tile.bounds.0;
+    let new_y = y as i32 + dy;
+    if new_y < 0 || new_y >= self.tile.bounds.1 as i32 {
+      return None;
+    }
+    Some((new_y * self.tile.bounds.0 as i32 + new_x) as usize)
+  }
+
+  pub fn at(&self, i: usize) -> Option<&Atom> {
+    self
+      .add_sites_on_tile(self.origin, i)
+      .and_then(|i| self.tile.get(i))
+  }
+
+  pub fn at_mut(&mut self, i: usize) -> Option<&mut Atom> {
+    self
+      .add_sites_on_tile(self.origin, i)
+      .and_then(move |i| self.tile.get_mut(i))
   }
 }
 
 pub struct Runtime<'a> {
-  ew: EventWindow,
-  elem: &'a Element<'a>,
-  tile: &'a mut Tile<'a>,
-  physics: Physics<'a>,
+  ew: &'a mut EventWindow<'a>,
   registers: [u128; 16],
+  labels: Vec<usize>,
   heap: Vec<u128>,
   default_symmetries: Symmetries,
   current_symmetries: Symmetries,
@@ -103,28 +187,16 @@ pub struct Runtime<'a> {
 }
 
 impl<'a> Runtime<'a> {
-  pub fn new(tile: &'a mut Tile<'a>, physics: Physics<'a>) -> Self {
+  pub fn new(ew: &'a mut EventWindow<'a>) -> Self {
     Self {
-      ew: EventWindow::new(0, 0),
-      elem: Element::EMPTY,
-      tile: tile,
-      physics: physics,
+      ew: ew,
       registers: [0; 16],
+      labels: Vec::new(),
       heap: Vec::new(),
       default_symmetries: Symmetries::R000L, // Normal
       current_symmetries: Symmetries::R000L,
       ip: 0,
     }
-  }
-
-  pub fn reset(&mut self) {
-    self.ew.reset();
-    for i in self.registers.iter_mut() {
-      *i = 0;
-    }
-    self.default_symmetries = Symmetries::R000L;
-    self.current_symmetries = Symmetries::R000L;
-    self.ip = 0;
   }
 
   pub fn use_symmetries(&mut self, symmetries: Symmetries) {
@@ -137,41 +209,44 @@ impl<'a> Runtime<'a> {
 
   pub fn get_value_u128(&self, x: Value) -> Result<u128, &'static str> {
     match x.vtype {
-      Some(ValueType::Inline) => Ok(x.data as u128),
-      Some(ValueType::Heap) => Ok(self.heap[x.data as usize]),
+      Some(ValueType::Inline) => x.get_inline().map(|x| x as u128).ok_or("bad inline fetch"),
+      Some(ValueType::Heap) => x.get_heap().map(|x| x as u128).ok_or("bad heap fetch"),
       Some(ValueType::Register) => match Register::from_usize(x.data as usize) {
         Some(Register::RUniformRandom) => Ok(rand::random::<u128>() & Atom::MASK),
         Some(x) => Ok(self.registers[x as usize]),
-        None => Err("bad register argument"),
+        None => Err("bad register"),
       },
       Some(ValueType::Site) => match Site::from_usize(x.data as usize) {
-        Some(x) => Ok(self.tile.sites[x.0 as usize].0),
-        None => Err("bad site number"),
+        Some(x) => self.ew.at(x.0 as usize).map(|a| a.0).ok_or("bad site"),
+        None => Err("bad site"),
       },
-      None => Err("bad argument type"),
+      None => Err("bad value type"),
     }
   }
 
-  pub fn store_const(self: &mut Runtime<'a>, dst: Value, c: u128) -> Result<(), &'static str> {
-    let result = match dst.vtype {
+  pub fn store_const(&mut self, dst: Value, c: u128) -> Result<(), &'static str> {
+    match dst.vtype {
       Some(ValueType::Inline) => Err("inline value is immutable"),
-      Some(ValueType::Heap) => Err("heap value is immutable"),
-      Some(ValueType::Register) => match Register::from_usize(x.data as usize) {
+      Some(ValueType::Heap) => Err("heap is immutable"),
+      Some(ValueType::Register) => match Register::from_usize(dst.data as usize) {
         Some(Register::RUniformRandom) => Err("random register is immutable"),
         Some(x) => Ok(&mut self.registers[x as usize]),
-        None => Err("bad register argument"),
+        None => Err("bad register"),
       },
-      Some(ValueType::Site) => match Site::from_usize(x.data as usize) {
-        Some(x) => Ok(&mut self.tile.sites[x.0 as usize].0),
-        None => Err("bad site number"),
+      Some(ValueType::Site) => match Site::from_usize(dst.data as usize) {
+        Some(x) => self
+          .ew
+          .at_mut(x.0 as usize)
+          .map(|a| &mut a.0)
+          .ok_or("bad site"),
+        None => Err("bad site"),
       },
-      None => Err("bad argument type"),
-    };
-    if result.is_err() {
-      return Err(result.unwrap_err());
+      None => Err("bad destination type"),
     }
-    *result.unwrap() = c;
-    Ok(())
+    .and_then(|result| {
+      *result = c;
+      Ok(())
+    })
   }
 
   pub fn store_binary_op(
@@ -181,15 +256,11 @@ impl<'a> Runtime<'a> {
     rhs: Value,
     op: fn(u128, u128) -> u128,
   ) -> Result<(), &'static str> {
-    let v1 = self.get_value_u128(lhs);
-    if v1.is_err() {
-      return Err(v1.unwrap_err());
-    }
-    let v2 = self.get_value_u128(rhs);
-    if v2.is_err() {
-      return Err(v2.unwrap_err());
-    }
-    self.store_const(dst, op(v1.unwrap(), v2.unwrap()))
+    self.get_value_u128(lhs).and_then(|x| {
+      self
+        .get_value_u128(rhs)
+        .and_then(|y| self.store_const(dst, op(x, y)))
+    })
   }
 
   pub fn store_unary_op(
@@ -198,32 +269,28 @@ impl<'a> Runtime<'a> {
     src: Value,
     op: fn(u128) -> u128,
   ) -> Result<(), &'static str> {
-    let v1 = self.get_value_u128(src);
-    if v1.is_err() {
-      return Err(v1.unwrap_err());
-    }
-    self.store_const(dst, op(v1.unwrap()))
+    self
+      .get_value_u128(src)
+      .and_then(|x| self.store_const(dst, op(x)))
   }
 
   pub fn copy(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    r.store_unary_op(dst, src, |x| x)
+    r.get_value_u128(src).and_then(|c| r.store_const(dst, c))
   }
 
   pub fn swap(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    let t = r.get_value_u128(dst);
-    if t.is_err() {
-      return Err(t.unwrap_err());
-    }
-    Self::copy(r, dst, src);
-    r.store_const(src, t.unwrap())
+    r.get_value_u128(dst).and_then(|t| {
+      r.get_value_u128(src)
+        .and_then(|y| r.store_const(dst, y).and_then(|_| r.store_const(src, t)))
+    })
   }
 
   pub fn scan(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    Err("not implemented")
   }
 
   pub fn checksum(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    Err("not implemented")
   }
 
   pub fn add(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
@@ -321,22 +388,26 @@ impl<'a> Runtime<'a> {
   }
 
   pub fn step(r: &mut Runtime) -> Result<(), &'static str> {
-    let ew = r.ew;
-
-    if ew.origin >= r.tile.sites.len() {
-      return Err("bad origin site");
+    let t: u16;
+    {
+      let a: Option<&mut Atom>;
+      a = r.ew.at_mut(0);
+      if a.is_none() {
+        return Ok(());
+      }
+      t = a.unwrap().get_type();
     }
 
-    let a = r.tile.sites[ew.origin];
-    let t = a.get_type();
-
-    if (t as usize) >= r.tile.physics.elements.len() {
-      return Err("bad origin atom type");
+    let elem: Option<&Element>;
+    {
+      let physics = &mut r.ew.tile.physics;
+      elem = physics.get(t as usize);
+      if elem.is_none() {
+        return Err("bad atom");
+      }
     }
 
-    let elem = r.tile.physics.elements[t as usize];
-    let prog = elem.program;
-
+    let prog = elem.unwrap().program;
     if r.ip >= prog.code.len() {
       return Ok(());
     }
@@ -377,6 +448,7 @@ impl<'a> Runtime<'a> {
   }
 }
 
+#[derive(Copy, Clone)]
 #[repr(u8)]
 pub enum DataType {
   Unsigned,
@@ -389,7 +461,7 @@ pub struct Program<'a> {
 }
 
 impl<'a> Program<'a> {
-  const EMPTY: Program<'a> = Self { code: &[] };
+  const EMPTY: &'a Program<'a> = &Self { code: &[] };
 
   pub fn new() -> Self {
     Self { code: &[] }
@@ -429,28 +501,40 @@ impl Value {
     }
   }
 
-  pub fn get_value(self) -> Option<u16> {
+  pub fn get_inline(self) -> Option<u16> {
     match self.vtype {
-      Some(ValueType::Inline) => Some(self.data),
+      Some(ValueType::Inline) => Some(self.data & 0x7fff),
       _ => None,
     }
   }
 
-  pub fn get_reference(self) -> Option<usize> {
+  pub fn get_heap(self) -> Option<usize> {
     match self.vtype {
-      Some(ValueType::Heap) => Some(self.data as usize),
-      Some(ValueType::Register) => Some(((self.data & 0x3f80) >> 7) as usize),
-      Some(ValueType::Site) => Some(((self.data & 0x3f80) >> 7) as usize),
+      Some(ValueType::Heap) => Some((self.data & 0x7fff) as usize),
+      _ => None,
+    }
+  }
+
+  pub fn get_register(self) -> Option<usize> {
+    match self.vtype {
+      Some(ValueType::Register) => Some((self.data & 0x7f00) as usize),
+      _ => None,
+    }
+  }
+
+  pub fn get_site(self) -> Option<usize> {
+    match self.vtype {
+      Some(ValueType::Site) => Some((self.data & 0x7f00) as usize),
       _ => None,
     }
   }
 
   pub fn get_field(self) -> Option<usize> {
     match self.vtype {
-      Some(ValueType::Register) => Some((self.data & 0x7f) as usize),
-      Some(ValueType::Site) => Some((self.data & 0x7f) as usize),
+      Some(ValueType::Register) | Some(ValueType::Site) => Some((self.data & 0xff) as usize),
       _ => None,
     }
+    .and_then(|x| if x > 0 { Some(x) } else { None })
   }
 }
 
@@ -526,6 +610,7 @@ impl Register {
   }
 }
 
+#[derive(Copy, Clone)]
 pub struct Field {
   dtype: DataType,
   length: u8,
@@ -540,20 +625,34 @@ pub struct Const {
 pub struct Tile<'a> {
   sites: &'a mut [Atom],
   bounds: (u16, u16),
-  physics: Physics<'a>,
+  physics: &'a Physics<'a>,
 }
 
 impl<'a> Tile<'a> {
-  pub fn new(sites: &'a mut [Atom], bounds: (u16, u16), physics: Physics<'a>) -> Tile<'a> {
+  pub fn new(sites: &'a mut [Atom], bounds: (u16, u16), physics: &'a Physics<'a>) -> Tile<'a> {
     Tile {
       sites: sites,
       bounds: bounds,
       physics: physics,
     }
   }
+
+  pub fn get(&self, i: usize) -> Option<&Atom> {
+    self.sites.get(i)
+  }
+
+  pub fn get_mut(&mut self, i: usize) -> Option<&mut Atom> {
+    self.sites.get_mut(i)
+  }
 }
 
 #[derive(Copy, Clone)]
 pub struct Physics<'a> {
   elements: &'a [Element<'a>],
+}
+
+impl<'a> Physics<'a> {
+  pub fn get(&self, i: usize) -> Option<&Element<'a>> {
+    self.elements.get(i)
+  }
 }
