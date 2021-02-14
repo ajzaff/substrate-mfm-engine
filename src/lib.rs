@@ -127,24 +127,15 @@ impl<'a> Runtime<'a> {
     self.ip = 0;
   }
 
-  pub fn get_value_mut(&mut self, x: Value) -> Result<&mut u128, &'static str> {
-    match x.vtype {
-      Some(ValueType::Inline) => Err("inline value is immutable"),
-      Some(ValueType::Heap) => Err("heap value is immutable"),
-      Some(ValueType::Register) => match Register::from_usize(x.data as usize) {
-        Some(Register::RUniformRandom) => Err("random register is immutable"),
-        Some(x) => Ok(&mut self.registers[x as usize]),
-        None => Err("bad register argument"),
-      },
-      Some(ValueType::Site) => match Site::from_usize(x.data as usize) {
-        Some(x) => Ok(&mut self.tile.sites[x.0 as usize].0),
-        None => Err("bad site number"),
-      },
-      None => Err("bad argument type"),
-    }
+  pub fn use_symmetries(&mut self, symmetries: Symmetries) {
+    self.current_symmetries = symmetries
   }
 
-  pub fn get_value(&self, x: Value) -> Result<u128, &'static str> {
+  pub fn restore_symmetries(&mut self) {
+    self.current_symmetries = self.default_symmetries
+  }
+
+  pub fn get_value_u128(&self, x: Value) -> Result<u128, &'static str> {
     match x.vtype {
       Some(ValueType::Inline) => Ok(x.data as u128),
       Some(ValueType::Heap) => Ok(self.heap[x.data as usize]),
@@ -161,32 +152,70 @@ impl<'a> Runtime<'a> {
     }
   }
 
-  pub fn use_symmetries(&mut self, symmetries: Symmetries) {
-    self.current_symmetries = symmetries
+  pub fn store_const(self: &mut Runtime<'a>, dst: Value, c: u128) -> Result<(), &'static str> {
+    let result = match dst.vtype {
+      Some(ValueType::Inline) => Err("inline value is immutable"),
+      Some(ValueType::Heap) => Err("heap value is immutable"),
+      Some(ValueType::Register) => match Register::from_usize(x.data as usize) {
+        Some(Register::RUniformRandom) => Err("random register is immutable"),
+        Some(x) => Ok(&mut self.registers[x as usize]),
+        None => Err("bad register argument"),
+      },
+      Some(ValueType::Site) => match Site::from_usize(x.data as usize) {
+        Some(x) => Ok(&mut self.tile.sites[x.0 as usize].0),
+        None => Err("bad site number"),
+      },
+      None => Err("bad argument type"),
+    };
+    if result.is_err() {
+      return Err(result.unwrap_err());
+    }
+    *result.unwrap() = c;
+    Ok(())
   }
 
-  pub fn restore_symmetries(&mut self) {
-    self.current_symmetries = self.default_symmetries
+  pub fn store_binary_op(
+    self: &mut Runtime<'a>,
+    dst: Value,
+    lhs: Value,
+    rhs: Value,
+    op: fn(u128, u128) -> u128,
+  ) -> Result<(), &'static str> {
+    let v1 = self.get_value_u128(lhs);
+    if v1.is_err() {
+      return Err(v1.unwrap_err());
+    }
+    let v2 = self.get_value_u128(rhs);
+    if v2.is_err() {
+      return Err(v2.unwrap_err());
+    }
+    self.store_const(dst, op(v1.unwrap(), v2.unwrap()))
+  }
+
+  pub fn store_unary_op(
+    self: &mut Runtime<'a>,
+    dst: Value,
+    src: Value,
+    op: fn(u128) -> u128,
+  ) -> Result<(), &'static str> {
+    let v1 = self.get_value_u128(src);
+    if v1.is_err() {
+      return Err(v1.unwrap_err());
+    }
+    self.store_const(dst, op(v1.unwrap()))
   }
 
   pub fn copy(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    let x: Result<&mut u128, &'static str>;
-    {
-      x = r.get_value_mut(dst);
-      if x.is_err() {
-        return Err(x.unwrap_err());
-      }
-    }
-    let y = r.get_value_mut(src); // TODO: Fix me
-    if y.is_err() {
-      return Err(y.unwrap_err());
-    }
-    *x.unwrap() = *y.unwrap();
-    Ok(())
+    r.store_unary_op(dst, src, |x| x)
   }
 
   pub fn swap(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    let t = r.get_value_u128(dst);
+    if t.is_err() {
+      return Err(t.unwrap_err());
+    }
+    Self::copy(r, dst, src);
+    r.store_const(src, t.unwrap())
   }
 
   pub fn scan(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
@@ -198,27 +227,27 @@ impl<'a> Runtime<'a> {
   }
 
   pub fn add(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x + y)
   }
 
   pub fn sub(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x - y) // FIXME: perform proper signed math.
   }
 
   pub fn negate(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_unary_op(dst, src, |x| -(x as i128) as u128) // FIXME: perform proper signed math.
   }
 
   pub fn modulo(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x % y)
   }
 
   pub fn mul(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x * y)
   }
 
   pub fn div(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x / y)
   }
 
   pub fn less_than(
@@ -227,7 +256,7 @@ impl<'a> Runtime<'a> {
     lhs: Value,
     rhs: Value,
   ) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| (x < y) as u128)
   }
 
   pub fn less_than_equal(
@@ -236,59 +265,59 @@ impl<'a> Runtime<'a> {
     lhs: Value,
     rhs: Value,
   ) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| (x <= y) as u128)
   }
 
   pub fn or(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x | y)
   }
 
   pub fn and(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x & y)
   }
 
   pub fn xor(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x ^ y)
   }
 
   pub fn equal(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| (x == y) as u128)
   }
 
   pub fn bit_count(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_unary_op(dst, src, |x| x.count_ones() as u128)
   }
 
   pub fn bit_scan_forward(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_unary_op(dst, src, |x| x.trailing_zeros() as u128)
   }
 
   pub fn bit_scan_reverse(r: &mut Runtime, dst: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_unary_op(dst, src, |x| x.leading_zeros() as u128)
   }
 
   pub fn lshift(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x >> y)
   }
 
   pub fn rshift(r: &mut Runtime, dst: Value, lhs: Value, rhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    r.store_binary_op(dst, lhs, rhs, |x, y| x << y)
   }
 
   pub fn jump(r: &mut Runtime, label: Value) -> Result<(), &'static str> {
-    Ok(())
+    Err("not implemented")
   }
 
   pub fn jump_relative_offset(r: &mut Runtime, dst: Value, lhs: Value) -> Result<(), &'static str> {
-    Ok(())
+    Err("not implemented")
   }
 
   pub fn jump_zero(r: &mut Runtime, label: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    Err("not implemented")
   }
 
   pub fn jump_non_zero(r: &mut Runtime, label: Value, src: Value) -> Result<(), &'static str> {
-    Ok(())
+    Err("not implemented")
   }
 
   pub fn step(r: &mut Runtime) -> Result<(), &'static str> {
