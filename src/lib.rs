@@ -208,39 +208,47 @@ impl<'a> Runtime<'a> {
   }
 
   pub fn get_value_u128(&self, x: Value) -> Result<u128, &'static str> {
-    match x.vtype {
+    match x.get_type() {
       Some(ValueType::Inline) => x.get_inline().map(|x| x as u128).ok_or("bad inline fetch"),
       Some(ValueType::Heap) => x.get_heap().map(|x| x as u128).ok_or("bad heap fetch"),
-      Some(ValueType::Register) => match Register::from_usize(x.data as usize) {
-        Some(Register::RUniformRandom) => Ok(rand::random::<u128>() & Atom::MASK),
-        Some(x) => Ok(self.registers[x as usize]),
-        None => Err("bad register"),
-      },
-      Some(ValueType::Site) => match Site::from_usize(x.data as usize) {
-        Some(x) => self.ew.at(x.0 as usize).map(|a| a.0).ok_or("bad site"),
-        None => Err("bad site"),
-      },
+      Some(ValueType::Register) => x
+        .get_register()
+        .and_then(|v| match Register::from_usize(v as usize) {
+          Some(Register::RUniformRandom) => Some(rand::random::<u128>() & Atom::MASK),
+          Some(x) => Some(self.registers[x as usize]),
+          None => None,
+        })
+        .ok_or("bad register"),
+      Some(ValueType::Site) => x
+        .get_site()
+        .and_then(|v| match Site::from_usize(v as usize) {
+          Some(x) => self.ew.at(x.0 as usize).map(|a| a.0),
+          None => None,
+        })
+        .ok_or("bad site"),
       None => Err("bad value type"),
     }
   }
 
   pub fn store_const(&mut self, dst: Value, c: u128) -> Result<(), &'static str> {
-    match dst.vtype {
+    match dst.get_type() {
       Some(ValueType::Inline) => Err("inline value is immutable"),
       Some(ValueType::Heap) => Err("heap is immutable"),
-      Some(ValueType::Register) => match Register::from_usize(dst.data as usize) {
-        Some(Register::RUniformRandom) => Err("random register is immutable"),
-        Some(x) => Ok(&mut self.registers[x as usize]),
-        None => Err("bad register"),
-      },
-      Some(ValueType::Site) => match Site::from_usize(dst.data as usize) {
-        Some(x) => self
-          .ew
-          .at_mut(x.0 as usize)
-          .map(|a| &mut a.0)
-          .ok_or("bad site"),
-        None => Err("bad site"),
-      },
+      Some(ValueType::Register) => dst
+        .get_register()
+        .and_then(|v| match Register::from_usize(v as usize) {
+          Some(Register::RUniformRandom) => None,
+          Some(x) => Some(&mut self.registers[x as usize]),
+          None => None,
+        })
+        .ok_or("bad register"),
+      Some(ValueType::Site) => dst
+        .get_site()
+        .and_then(|v| match Site::from_usize(v as usize) {
+          Some(x) => self.ew.at_mut(x.0 as usize).map(|a| &mut a.0),
+          None => None,
+        })
+        .ok_or("bad site"),
       None => Err("bad destination type"),
     }
     .and_then(|result| {
@@ -480,58 +488,52 @@ impl Instruction {
   pub fn from_u64(x: u64) -> Self {
     Self {
       op: FromPrimitive::from_u64((x & 0xff000000000000) >> 48),
-      dst: Value::from_u16(((x & 0xffff00000000) >> 32) as u16),
-      lhs: Value::from_u16(((x & 0xffff0000) >> 16) as u16),
-      rhs: Value::from_u16((x & 0xffff) as u16),
+      dst: Value(((x & 0xffff00000000) >> 32) as u16),
+      lhs: Value(((x & 0xffff0000) >> 16) as u16),
+      rhs: Value((x & 0xffff) as u16),
     }
   }
 }
 
 #[derive(Copy, Clone)]
-pub struct Value {
-  vtype: Option<ValueType>,
-  data: u16,
-}
+pub struct Value(u16);
 
 impl Value {
-  pub fn from_u16(x: u16) -> Self {
-    Self {
-      vtype: ValueType::from_u8(((x & 0xc000) >> 12) as u8),
-      data: x & 0xfff,
-    }
+  pub fn get_type(self) -> Option<ValueType> {
+    ValueType::from_u8(((self.0 & 0xc000) >> 12) as u8)
   }
 
   pub fn get_inline(self) -> Option<u16> {
-    match self.vtype {
-      Some(ValueType::Inline) => Some(self.data & 0x7fff),
+    match self.get_type() {
+      Some(ValueType::Inline) => Some(self.0 & 0x7fff),
       _ => None,
     }
   }
 
   pub fn get_heap(self) -> Option<usize> {
-    match self.vtype {
-      Some(ValueType::Heap) => Some((self.data & 0x7fff) as usize),
+    match self.get_type() {
+      Some(ValueType::Heap) => Some((self.0 & 0x7fff) as usize),
       _ => None,
     }
   }
 
   pub fn get_register(self) -> Option<usize> {
-    match self.vtype {
-      Some(ValueType::Register) => Some((self.data & 0x7f00) as usize),
+    match self.get_type() {
+      Some(ValueType::Register) => Some((self.0 & 0x7f00) as usize),
       _ => None,
     }
   }
 
   pub fn get_site(self) -> Option<usize> {
-    match self.vtype {
-      Some(ValueType::Site) => Some((self.data & 0x7f00) as usize),
+    match self.get_type() {
+      Some(ValueType::Site) => Some((self.0 & 0x7f00) as usize),
       _ => None,
     }
   }
 
   pub fn get_field(self) -> Option<usize> {
-    match self.vtype {
-      Some(ValueType::Register) | Some(ValueType::Site) => Some((self.data & 0xff) as usize),
+    match self.get_type() {
+      Some(ValueType::Register) | Some(ValueType::Site) => Some((self.0 & 0xff) as usize),
       _ => None,
     }
     .and_then(|x| if x > 0 { Some(x) } else { None })
