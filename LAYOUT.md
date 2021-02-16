@@ -62,3 +62,32 @@ Registers are referenced by index. 16 registers exist in total, where register 1
 Fields are heap allocated and referenced by index. Registers and site references take an optional field part (as seen in the table above) allowing 7-bits for each.
 
 This implies a upper limit of 122 user-space fields (less 4 builtin fields and 0 being used as a flag value).
+
+## Stack
+
+The language extensions: `Push`, `Pop`, `Call` and `Ret` demand the use of a 96-bit stack.
+
+Stack internal are managed for the user and inter-frame access not allowed.
+
+### Frames
+
+||||
+|---|---|---|
+|...|...|
+|5|`FRAME_BOUND` \| (frame)|Internal.|
+|6|`FRAME_BOUND` \| (ip)|Internal.|
+|...|...|
+|996|`FRAME_BOUND` \| (frame)|Internal.|
+|997|`FRAME_BOUND` \| (ip)|Internal.|
+|998|(arguments)|Arguments copied from the last `Call`.|
+|...|...||
+|1002|`FRAME_BOUND` \| (frame)|Internal. Previous frame start index.|
+|1003|`FRAME_BOUND` \| (ip)|Internal. Previous instruction pointer.|
+|1004|(ret)|Return values for `Ret`.|
+
+
+When `call` is executed: the stack capacity is increased to hold `FRAME_BOUND` values.
+
+`N` user call arguments are moved to the new stack frame (after `FRAME_BOUND` values).
+
+When `ret` is called `N` return values are copied to the previous stack pointer and the top frame is unwound.

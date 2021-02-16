@@ -225,7 +225,7 @@ Parameters may be referenced by name to get their values.
 Instructions fall roughly into one of three informal categories:
 
 * **Window**: Manipulating the event window.
-* **Logical**: Arithmetic using basic types.
+* **Logical**: Arithmetic using basic types and a stack.
 * **Control**: Program flow control.
 
 Placeholders `DST`, `SRC`, `LHS`, and `RHS` refer to any expression. `DST` should be a writeable.
@@ -239,8 +239,12 @@ Instructions are 64-bits. The layout is defined in [LAYOUT.md](LAYOUT.md).
 |`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
 |`Swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
 |`Scan DST SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask into `DST`.|
-|`UseSymmetries SYM [SYM...]`|Switch to using the given symmetries.|
-|`RestoreSymmetries`|Restore the original default symmetries; When no `.Symmetries` entry is present, this is `R_000L` (normal).|
+|`UseSymmetries SYM [SYM...]`|Push the current symmetries onto the stack, and use the given ones.|
+|`RestoreSymmetries`|Pop the old symmetries off the stack and use them; When no symmetry is present, this is the default or `R_000L` (normal).|
+|`Push DST`|Push `DST` onto the stack.|
+|`Pop DST`|Pop a value off the stack into `DST`.|
+|`Call LABEL [N]`|Call a labelled routine and transparently push the current instruction pointer. Copy top `N` stack values as arguments (defaults to 0).|
+|`Ret [N]`|Restore the last instruction pointer value. Copy `N` arguments to the previous stack pointer (defaults to 0).| 
 |`Checksum DST SRC`|Checksum the atom at `SRC`. Store the checksum result into `DST`: 1 if checksum differs; 0 otherwise.|
 |`Add DST LHS RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
 |`Sub DST LHS RHS`|Store the result of `LHS - RHS` (arithmetic) into `DST`.|

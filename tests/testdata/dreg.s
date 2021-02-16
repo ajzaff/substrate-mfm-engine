@@ -8,7 +8,8 @@
 .BGCOLOR #000
 .FGCOLOR #f0f
 
-  JumpNotZero occupied #1
+  JumpNotZero occupied #1$type
+  Copy R_0 R_UniformRandom
   JumpRelativeOffset 4 ?9
   JumpRelativeOffset 5 ?11
   Move RSN RAS       // move.
