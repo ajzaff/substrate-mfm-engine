@@ -65,29 +65,41 @@ This implies a upper limit of 122 user-space fields (less 4 builtin fields and 0
 
 ## Stack
 
-The language extensions: `Push`, `Pop`, `Call` and `Ret` demand the use of a 96-bit stack.
+The language extensions: `Push`, `Pop`, `Call` and `Ret` demand the use of a 96-bit combined call stack and general purpose stack.
 
-Stack internal are managed for the user and inter-frame access not allowed.
+The stack supports a concept called "strict framing". Inter-frame access (and explicit dereference of the stack in general) is not allowed.
+
+Passing of arguments between `Call` and `Ret` is the only way to pass elements between stack frames.
+
+The engine should do this via an automatic copy (or move) of stack values.
+
+Stack frames are delimited with `Frame(idx)` values and other control values such as the return address and register values.
+
+This could be implemented with enum variants or mask which identifies the control value.
+
+* `Frame(x)` points to a stack frame stack offset (of the previous frame).
+* `Return(x)` is a return pointer used to restore the instruction pointer after a `Ret` instruction.
+* `R(x)` provides a means to save and restore registers on the stack, but support is optional.
+
+Control values should be automatically managed and never exposed to the user program.
 
 ### Frames
 
 ||||
 |---|---|---|
 |...|...|
-|5|`FRAME_BOUND` \| (frame)|Internal.|
-|6|`FRAME_BOUND` \| (ip)|Internal.|
+|5|`Frame(idx)`|Control.|
+|6|`Return(ip)`|Control.|
+|...|`R(val)`|Control.|
 |...|...|
-|996|`FRAME_BOUND` \| (frame)|Internal.|
-|997|`FRAME_BOUND` \| (ip)|Internal.|
-|998|(arguments)|Arguments copied from the last `Call`.|
+|996|`Frame(idx)`|Control.|
+|997|`Return(ip)`|Control.|
+|...|`R(val)`|Control.|
+|...|(arguments)|Arguments copied from the last `Call`.|
 |...|...||
-|1002|`FRAME_BOUND` \| (frame)|Internal. Previous frame start index.|
-|1003|`FRAME_BOUND` \| (ip)|Internal. Previous instruction pointer.|
-|1004|(ret)|Return values for `Ret`.|
+|1002|`Frame(idx)`|Control. Previous frame start index.|
+|1003|`Return(ip)`|Control. Previous instruction pointer.|
+|...|`R(val)`|Control. Stored regiser value (optional).|
+|...|Return values for `Ret`.|
 
-
-When `call` is executed: the stack capacity is increased to hold `FRAME_BOUND` values.
-
-`N` user call arguments are moved to the new stack frame (after `FRAME_BOUND` values).
-
-When `ret` is called `N` return values are copied to the previous stack pointer and the top frame is unwound.
+`call` are `ret` should copy (or move) a fixed number of elements based on their size arguments.
