@@ -1,0 +1,18 @@
+use crate::arith::{U96, I96};
+use crate::base::{Register};
+use std::str::FromStr;
+
+grammar;
+
+pub BinNum: U96 = <s:r"0b[01]+"> => U96::from_str_radix(&s[2..], 2).unwrap();
+
+pub DecNum: U96 = <s:r"[0-9]+"> => U96::from_str_radix(s, 10).unwrap();
+
+pub HexNum: U96 = <s:r"0x[0-9a-fA-F]+"> => U96::from_str_radix(&s[2..], 16).unwrap();
+
+pub SignedNum: I96 = <s:r"-[0-9]+"> => I96::from_str_radix(s, 10).unwrap();
+
+pub Register: Register = {
+    "r?" => Register::RRand,
+    <s:r"r1[0-9]+|r[0-9]"> => Register::from_usize(usize::from_str(&s[1..]).unwrap()).unwrap(), 
+};
