@@ -1,11 +1,11 @@
 mod base;
 mod mfm;
 
+use base::op::Op;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use crate::base::Register;
-use crate::mfm::Symmetries;
+use crate::base::Symmetries;
 use std::vec::Vec;
 
 #[derive(Copy, Clone)]
@@ -409,12 +409,12 @@ impl<'a> Runtime<'a> {
       Some(Op::Checksum) => Runtime::checksum(r, instr.dst, instr.lhs),
       Some(Op::Add) => Runtime::add(r, instr.dst, instr.lhs, instr.rhs),
       Some(Op::Sub) => Runtime::sub(r, instr.dst, instr.lhs, instr.rhs),
-      Some(Op::Negate) => Runtime::negate(r, instr.dst, instr.lhs),
+      Some(Op::Neg) => Runtime::negate(r, instr.dst, instr.lhs),
       Some(Op::Mod) => Runtime::modulo(r, instr.dst, instr.lhs, instr.rhs),
       Some(Op::Mul) => Runtime::mul(r, instr.dst, instr.lhs, instr.rhs),
       Some(Op::Div) => Runtime::div(r, instr.dst, instr.lhs, instr.rhs),
-      Some(Op::LessThan) => Runtime::less_than(r, instr.dst, instr.lhs, instr.rhs),
-      Some(Op::LessThanEqual) => Runtime::less_than_equal(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::Less) => Runtime::less_than(r, instr.dst, instr.lhs, instr.rhs),
+      Some(Op::LessEqual) => Runtime::less_than_equal(r, instr.dst, instr.lhs, instr.rhs),
       Some(Op::Or) => Runtime::or(r, instr.dst, instr.lhs, instr.rhs),
       Some(Op::And) => Runtime::and(r, instr.dst, instr.lhs, instr.rhs),
       Some(Op::Xor) => Runtime::xor(r, instr.dst, instr.lhs, instr.rhs),
@@ -428,7 +428,7 @@ impl<'a> Runtime<'a> {
       Some(Op::JumpRelativeOffset) => Runtime::jump_relative_offset(r, instr.dst, instr.lhs),
       Some(Op::JumpZero) => Runtime::jump_zero(r, instr.dst, instr.lhs),
       Some(Op::JumpNonZero) => Runtime::jump_non_zero(r, instr.dst, instr.lhs),
-      None => Err("bad op"),
+      _ => todo!(), // FIXME
     }
   }
 }
@@ -455,7 +455,7 @@ impl<'a> Program<'a> {
 
 #[derive(Copy, Clone)]
 pub struct Instruction {
-  pub op: Option<Op>,
+  pub op: Option<Op>, // FIXME
   pub dst: Value,
   pub lhs: Value,
   pub rhs: Value,
@@ -464,7 +464,7 @@ pub struct Instruction {
 impl Instruction {
   pub fn from_u64(x: u64) -> Self {
     Self {
-      op: FromPrimitive::from_u64((x & 0xff000000000000) >> 48),
+      op: None, // FIXME
       dst: Value(((x & 0xffff00000000) >> 32) as u16),
       lhs: Value(((x & 0xffff0000) >> 16) as u16),
       rhs: Value((x & 0xffff) as u16),
@@ -529,38 +529,6 @@ impl ValueType {
   pub fn from_u8(x: u8) -> Option<ValueType> {
     FromPrimitive::from_u8(x)
   }
-}
-
-#[repr(u8)]
-#[derive(Copy, Clone, FromPrimitive)]
-pub enum Op {
-  Nop,
-  Exit,
-  Copy,
-  Swap,
-  Scan,
-  Checksum,
-  Add,
-  Sub,
-  Negate,
-  Mod,
-  Mul,
-  Div,
-  LessThan,
-  LessThanEqual,
-  Or,
-  And,
-  Xor,
-  Equal,
-  BitCount,
-  BitScanForward,
-  BitScanReverse,
-  LShift,
-  RShift,
-  Jump,
-  JumpRelativeOffset,
-  JumpZero,
-  JumpNonZero,
 }
 
 #[derive(Copy, Clone)]

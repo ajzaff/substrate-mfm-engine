@@ -1,11 +1,7 @@
-mod arith;
+mod ast;
 mod base;
 mod mfm;
 mod stack;
-
-use arith::*;
-use stack::*;
-use std::str::FromStr;
 
 #[macro_use]
 extern crate bitflags;
@@ -20,9 +16,9 @@ fn main() {
     //     let y = U96(10);
 
     //     println!("{}", x + y)
-    let p = substrate::DefaultSymmetriesParser::new();
+    let p = substrate::InstructionParser::new();
 
-    let res = p.parse(".symmetries R000L | R090L");
+    let res = p.parse("swap c,$b");
 
     if res.is_ok() {
         println!("{:?}", res.unwrap())

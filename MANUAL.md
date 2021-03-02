@@ -236,34 +236,34 @@ Instructions are 64-bits. The layout is defined in [LAYOUT.md](LAYOUT.md).
 |--------|---------|
 |`nop`|Execute an nothing operation.|
 |`exit`|Exit the program immediately.|
-|`copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
-|`swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
-|`scan DST SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask into `DST`.|
-|`usesymmetries SYM [SYM...]`|Push the current symmetries onto the stack, and use the given ones.|
+|`copy DST,SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
+|`swap DST,SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
+|`scan DST,SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask into `DST`.|
+|`usesymmetries SYM|[SYM...]`|Push the current symmetries onto the stack, and use the given ones.|
 |`restoresymmetries`|Pop the old symmetries off the stack and use them; When no symmetry is present, this is the default or `R_000L` (normal).|
 |`push DST`|Push `DST` onto the stack.|
 |`pop DST`|Pop a value off the stack into `DST`.|
-|`call LABEL [N]`|Call a labelled routine and transparently push the current instruction pointer. Copy top `N` stack values as arguments (defaults to 0).|
-|`ret [N]`|Restore the last instruction pointer value. Copy `N` arguments to the previous stack pointer (defaults to 0).| 
-|`checksum DST SRC`|Checksum the atom at `SRC`. Store the checksum result into `DST`: 1 if checksum differs; 0 otherwise.|
-|`add DST LHS RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
-|`sub DST LHS RHS`|Store the result of `LHS - RHS` (arithmetic) into `DST`.|
-|`negate DST SRC`|Store the result of `-SRC` (arithmetic) into `DST`.|
-|`mod DST LHS RHS`|Store the result of `LHS % RHS` (arithmetic) into `DST`.|
-|`mul DST LHS RHS`|Store the result of `LHS * RHS` (arithmetic) into `DST`.|
-|`div DST LHS RHS`|Store the result of `LHS / RHS` (arithmetic) rounded down into `DST`.|
-|`lessthan DST LHS RHS`|Store the result of comparing `LHS < RHS` (arithmetic) into `DST`.|
-|`lessthanequal DST LHS RHS`|Store the result of `LHS <= RHS` (arithmetic) into `DST`.|
-|`or DST LHS RHS`|Store the result of `LHS \|\| RHS` (logical) into `DST`.|
-|`and DST LHS RHS`|Store the result of `LHS && RHS` (logical) into `DST`.|
-|`xor DST LHS RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.|
-|`equal DST LHS RHS`|Store the result of `LHS == RHS` (logical) into `DST`.|
-|`bitcount DST SRC`|Store the number of set bits from `SRC` (logical) into `DST`.|
-|`bitscanforward DST SRC`|Store the masked LSB index from `SRC` (logical) into `DST`.|
-|`bitscanreverse DST SRC`|Store the masked MSB index from `SRC` (logical) into `DST`.|
-|`lshift DST LHS RHS`|Store the result of `LHS << RHS` (logical) into `DST`.|
-|`rshift DST LHS RHS`|Store the result of `LHS >> RHS` (logical) into `DST`.|
+|`call LABEL`|Call a labelled routine and push the current instruction pointer.|
+|`ret`|Pop and return to the last instruction pointer on the stack.| 
+|`checksum DST,SRC`|Checksum the atom at `SRC`. Store the checksum result into `DST`: 1 if checksum differs; 0 otherwise.|
+|`add DST,LHS,RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
+|`sub DST,LHS,RHS`|Store the result of `LHS - RHS` (arithmetic) into `DST`.|
+|`neg DST,SRC`|Store the result of `-SRC` (arithmetic) into `DST`.|
+|`mod DST,LHS,RHS`|Store the result of `LHS % RHS` (arithmetic) into `DST`.|
+|`mul DST,LHS,RHS`|Store the result of `LHS * RHS` (arithmetic) into `DST`.|
+|`div DST,LHS,RHS`|Store the result of `LHS / RHS` (arithmetic) rounded down into `DST`.|
+|`less DST,LHS,RHS`|Store the result of comparing `LHS < RHS` (arithmetic) into `DST`.|
+|`lessequal DST,LHS,RHS`|Store the result of `LHS <= RHS` (arithmetic) into `DST`.|
+|`or DST,LHS,RHS`|Store the result of `LHS \|\| RHS` (logical) into `DST`.|
+|`and DST,LHS,RHS`|Store the result of `LHS && RHS` (logical) into `DST`.|
+|`xor DST,LHS,RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.|
+|`equal DST,LHS,RHS`|Store the result of `LHS == RHS` (logical) into `DST`.|
+|`bitcount DST,SRC`|Store the number of set bits from `SRC` (logical) into `DST`.|
+|`bitscanforward DST,SRC`|Store the masked LSB index from `SRC` (logical) into `DST`.|
+|`bitscanreverse DST,SRC`|Store the masked MSB index from `SRC` (logical) into `DST`.|
+|`lshift DST,LHS,RHS`|Store the result of `LHS << RHS` (logical) into `DST`.|
+|`rshift DST,LHS,RHS`|Store the result of `LHS >> RHS` (logical) into `DST`.|
 |`jump LABEL`|Jump to `LABEL` unconditionally.|
-|`jumprelativeoffset LABEL SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC` (may be signed).|
-|`jumpzero LABEL SRC`|Jump to `LABEL` iff `SRC == 0`.|
-|`jumpnonzero LABEL SRC`|Jump to `LABEL` iff `SRC <> 0`.|
+|`jumprelativeoffset LABEL,SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC` (may be signed).|
+|`jumpzero LABEL,SRC`|Jump to `LABEL` iff `SRC == 0`.|
+|`jumpnonzero LABEL,SRC`|Jump to `LABEL` iff `SRC <> 0`.|

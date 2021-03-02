@@ -1,54 +1,125 @@
-use crate::arith::{U96, I96};
-use crate::base::{Field, FieldSelector, Register, SiteNumber};
-use crate::mfm::{Symmetries, ElementEntry};
+use crate::base;
+use crate::base::arith::{U96, I96};
+use crate::base::op::{Op, MetaOp};
+use crate::base::{Const, Symmetries, SiteNumber};
+use crate::ast;
+use crate::ast::{Node, Arg, Args};
 use std::str::FromStr;
+use enquote::unquote;
 
 grammar;
 
-Ident: String = <s:r"[_A-Z][_A-Z0-9]*"> => s.to_string();
+Ident: String = <s:r"[_a-z][_a-zA-Z0-9]*"> => s.to_owned();
 
-BinNum: U96 = <s:r"0b[01]+"> => U96::from_str_radix(&s[2..], 2).unwrap();
+String: String = r#""[^"]*""# => unquote(<>).unwrap();
 
-DecNum: U96 = <s:r"[1-9][0-9]+|[0-9]"> => U96::from_str_radix(s, 10).unwrap();
+BinNum: Const = <s:r"0b[01]+"> => Const::Unsigned(U96::from_str_radix(&s[2..], 2).unwrap());
 
-HexNum: U96 = <s:r"0x[0-9a-fA-F]+"> => U96::from_str_radix(&s[2..], 16).unwrap();
+DecNum: Const = <s:r"[1-9][0-9]+|[0-9]"> => Const::Unsigned(U96::from_str_radix(s, 10).unwrap());
 
-SignedNum: I96 = <s:r"-[0-9]+"> => I96::from_str_radix(s, 10).unwrap();
+HexNum: Const = <s:r"0x[0-9a-fA-F]+"> => Const::Unsigned(U96::from_str_radix(&s[2..], 16).unwrap());
 
-Register: Register = {
-    "r?" => Register(15),
-    <s:r"r[1-9][0-9]+|r[0-9]"> => Register(usize::from_str(&s[1..]).unwrap()), 
-};
+SignedNum: Const = <s:r"[+-][1-9][0-9]+|[+-][0-9]"> => Const::Signed(I96::from_str_radix(s, 10).unwrap());
 
-SiteNum: SiteNumber = <s:r"#40|#[1-3][0-9]|#[0-9]"> => SiteNumber(u8::from_str(&s[1..]).unwrap());
+ConstExpr: Const = {
+    BinNum,
+    DecNum,
+    HexNum,
+    SignedNum,
+}
 
-FieldDeclaration: Field = {
-    ".field" <i:Ident> <o:r"[1-9][0-9]+|[0-9]"> <n:r"[1-9][0-9]+|[0-9]"> => Field{
-        name: i,
-        sel: FieldSelector{
-            offset: u8::from_str(o).unwrap(),
-            length: u8::from_str(n).unwrap(),
-        }},
-};
+Color: &'input str = <s:r"#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}"> => s;
 
 Symmetry: Symmetries = {
-    "NONE" => Symmetries::NONE,
-    "R000L" => Symmetries::R000L,
-    "R090L" => Symmetries::R090L,
-    "R180L" => Symmetries::R180L,
-    "R270L" => Symmetries::R270L,
-    "R000R" => Symmetries::R000R,
-    "R090R" => Symmetries::R090R,
-    "R180R" => Symmetries::R180R,
-    "R270R" => Symmetries::R270R,
-    "ALL" => Symmetries::ALL,
-};
+    <s:Ident> => Symmetries::from_str(s.as_str()).unwrap(),
+}
 
 Symmetries: Symmetries = {
     <s:Symmetry> => s,
     <s:Symmetry> "|" <ss:Symmetries> => s | ss,
-};
+}
 
-pub DefaultSymmetries: ElementEntry<Symmetries> = {
-    ".symmetries" <ss:Symmetries> => ElementEntry::<Symmetries>("symmetries", ss),
-};
+pub MetaInstruction: Node = {
+    ".name" <i:String> => Node::MetaInstruction(MetaOp::Name, Args::Unary(Arg::String(i.to_string()))),
+    ".symbol" <i:Ident> => Node::MetaInstruction(MetaOp::Symbol, Args::Unary(Arg::String(i.to_string()))),
+    ".desc" <i:String> => Node::MetaInstruction(MetaOp::Desc, Args::Unary(Arg::String(i.to_string()))),
+    ".author" <i:String> => Node::MetaInstruction(MetaOp::Author, Args::Unary(Arg::String(i.to_string()))),
+    ".license" <i:String> => Node::MetaInstruction(MetaOp::License, Args::Unary(Arg::String(i.to_string()))),
+    <p:r".radius [0-4]"> => Node::MetaInstruction(MetaOp::Radius, Args::Unary(Arg::U8(u8::from_str(&p[8..]).unwrap()))),
+    ".bgcolor" <i:Color> => Node::MetaInstruction(MetaOp::BgColor, Args::Unary(Arg::String(i.to_string()))),
+    ".fgcolor" <i:Color> => Node::MetaInstruction(MetaOp::FgColor, Args::Unary(Arg::String(i.to_string()))),
+    ".symmetries" <ss:Symmetries> => Node::MetaInstruction(MetaOp::Symmetries, Args::Unary(Arg::Symmetries(ss))),
+    ".field" <i:Ident> <o:r"[1-9][0-9]+|[0-9]"> <n:r"[1-9][0-9]+|[0-9]"> => Node::MetaInstruction(
+        MetaOp::Field,
+        Args::Ternary(
+            Arg::String(i),
+            Arg::U8(u8::from_str(o).unwrap()),
+            Arg::U8(u8::from_str(n).unwrap()),
+        )),
+    ".parameter" <i:Ident> <c:ConstExpr> => Node::MetaInstruction(MetaOp::Parameter, Args::Binary(
+        Arg::String(i),
+        Arg::Const(c, ast::Field::Selector(base::FieldSelector::ALL)))),
+}
+
+Label: Node = <i:Ident> ":" => Node::Label(i);
+
+SiteNum: SiteNumber = <s:r"#40|#[1-3][0-9]|#[0-9]"> => SiteNumber(u8::from_str(&s[1..]).unwrap());
+
+FieldRef: ast::Field = {
+    "$" <i:Ident> => ast::Field::Ref(i),
+}
+
+TypeRef: Arg = {
+    "%" <i:Ident> => Arg::Type(i),
+}
+
+RegisterRef: ast::Register = {
+    "R?" => ast::Register::Random,
+    <s:r"R[1-9][0-9]+|R[0-9]"> => ast::Register::R(usize::from_str(&s[1..]).unwrap()), 
+}
+
+Arg: Arg = {
+    <i:SiteNum> <s:FieldRef> => Arg::SiteNumber(i, s),
+    <i:SiteNum> => Arg::SiteNumber(i, ast::Field::Selector(base::FieldSelector::ALL)),
+    <s:FieldRef> => Arg::SiteNumber(base::SiteNumber(0), s),
+    <i:Ident> <s:FieldRef> => Arg::ConstRef(i, s),
+    <i:Ident> => Arg::ConstRef(i, ast::Field::Selector(base::FieldSelector::ALL)),
+    <t:TypeRef> => t,
+    <r:RegisterRef> <s:FieldRef> => Arg::Register(r, s),
+    <r:RegisterRef> => Arg::Register(r, ast::Field::Selector(base::FieldSelector::ALL)),
+}
+
+pub Instruction: Node = {
+    "nop" => Node::Instruction(Op::Nop, Args::Null),
+    "exit" =>  Node::Instruction(Op::Exit, Args::Null),
+    "swap" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Swap, Args::Binary(a, b)),
+    "scan" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Scan, Args::Binary(a, b)),
+    "usesymmetries" <s:Symmetries> => Node::Instruction(Op::UseSymmetries, Args::Unary(Arg::Symmetries(s))),
+    "restoresymmetries" => Node::Instruction(Op::RestoreSymmetries, Args::Null),
+    "push" <a:Arg> => Node::Instruction(Op::Push, Args::Unary(a)),
+    "pop" <a:Arg> => Node::Instruction(Op::Push, Args::Unary(a)),
+    "call" <i:Ident> => Node::Instruction(Op::Call, Args::Unary(Arg::Label(i))),
+    "ret" => Node::Instruction(Op::Ret, Args::Null),
+    "checksum" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Checksum, Args::Binary(a, b)),
+    "add" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Add, Args::Ternary(a, b, c)),
+    "sub" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Sub, Args::Ternary(a, b, c)),
+    "neg" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Neg, Args::Binary(a, b)),
+    "mod" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Mod, Args::Ternary(a, b, c)),
+    "mul" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Mul, Args::Ternary(a, b, c)),
+    "div" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Div, Args::Ternary(a, b, c)),
+    "less" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Less, Args::Ternary(a, b, c)),
+    "lessequal" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::LessEqual, Args::Ternary(a, b, c)),
+    "or" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Or, Args::Ternary(a, b, c)),
+    "and" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::And, Args::Ternary(a, b, c)),
+    "xor" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Xor, Args::Ternary(a, b, c)),
+    "equal" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::Equal, Args::Ternary(a, b, c)),
+    "bitcount" <a:Arg> "," <b:Arg> => Node::Instruction(Op::BitCount, Args::Binary(a, b)),
+    "bitscanforward" <a:Arg> "," <b:Arg> => Node::Instruction(Op::BitScanForward, Args::Binary(a, b)),
+    "bitscanreserve" <a:Arg> "," <b:Arg> => Node::Instruction(Op::BitScanReverse, Args::Binary(a, b)),
+    "lshift" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::LShift, Args::Ternary(a, b, c)),
+    "rshift" <a:Arg> "," <b:Arg> "," <c:Arg> => Node::Instruction(Op::RShift, Args::Ternary(a, b, c)),
+    "jump" <i:Ident> => Node::Instruction(Op::Jump, Args::Unary(Arg::Label(i))),
+    "jumprelativeoffset" <i:Ident> "," <b:Arg> => Node::Instruction(Op::Jump, Args::Binary(Arg::Label(i), b)),
+    "jumpzero" <i:Ident> "," <b:Arg> => Node::Instruction(Op::JumpZero, Args::Binary(Arg::Label(i), b)),
+    "jumpnonzero" <i:Ident> "," <b:Arg> => Node::Instruction(Op::JumpNonZero, Args::Binary(Arg::Label(i), b)),
+}

@@ -12,6 +12,7 @@ build = "build.rs" # LALRPOP preprocessing
 lalrpop = "0.19.4"
 
 [dependencies]
+enquote = "1.0.3"
 bitflags = "1.0"
 rand = "0.8.3"
 num = "0.3"
