@@ -32,7 +32,8 @@ A constant typed value can be used wherever a constant expression is expected.
 
 ```
   5      // unsigned integer by default
-  -1i    // signed integer.
+  -1     // signed integer.
+  +1     // signed integer.
   0b0111 // binary; always unsigned.
   0xffff // hex; always unsigned.
 ```
@@ -212,9 +213,9 @@ Meta-instructions are generally specified once at the start of a program.
 |`.radius RADIUS`|A maximum radius for the element; Values `[0-4]` are valid.|
 |`.bgcolor COLOR`|A background color for frontends to use.|
 |`.fgcolor COLOR`|A foreground color for frontends to use.|
-|`.symmetries SYMMETRY [SYMMETRIES...]`|Default symmetries to use.|
-|`.field NAME TYPE POSITION BIT-LENGTH`|A named accessor to element data; Repeatable.|
-|`.parameter NAME TYPE DEFAULT-VALUE`|A named constant parameter; Repeatable.|
+|`.symmetries SYMMETRY|[SYMMETRIES...]`|Default symmetries to use.|
+|`.field NAME,POSITION,BIT-LENGTH`|A named accessor to element data; Repeatable.|
+|`.parameter NAME,DEFAULT-VALUE`|A named constant parameter; Repeatable.|
 
 Metadata are read only and not programmatically accessible.
 

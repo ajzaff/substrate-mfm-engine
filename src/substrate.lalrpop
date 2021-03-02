@@ -49,14 +49,14 @@ pub MetaInstruction: Node = {
     ".bgcolor" <i:Color> => Node::MetaInstruction(MetaOp::BgColor, Args::Unary(Arg::String(i.to_string()))),
     ".fgcolor" <i:Color> => Node::MetaInstruction(MetaOp::FgColor, Args::Unary(Arg::String(i.to_string()))),
     ".symmetries" <ss:Symmetries> => Node::MetaInstruction(MetaOp::Symmetries, Args::Unary(Arg::Symmetries(ss))),
-    ".field" <i:Ident> <o:r"[1-9][0-9]+|[0-9]"> <n:r"[1-9][0-9]+|[0-9]"> => Node::MetaInstruction(
+    ".field" <i:Ident> "," <o:r"[1-9][0-9]+|[0-9]"> "," <n:r"[1-9][0-9]+|[0-9]"> => Node::MetaInstruction(
         MetaOp::Field,
         Args::Ternary(
             Arg::String(i),
             Arg::U8(u8::from_str(o).unwrap()),
             Arg::U8(u8::from_str(n).unwrap()),
         )),
-    ".parameter" <i:Ident> <c:ConstExpr> => Node::MetaInstruction(MetaOp::Parameter, Args::Binary(
+    ".parameter" <i:Ident> "," <c:ConstExpr> "," => Node::MetaInstruction(MetaOp::Parameter, Args::Binary(
         Arg::String(i),
         Arg::Const(c, ast::Field::Selector(base::FieldSelector::ALL)))),
 }
