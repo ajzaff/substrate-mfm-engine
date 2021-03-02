@@ -50,41 +50,41 @@ Constants are limited to 96-bits in size.
 
 |Register Name||
 |--------|---------|
-|`R_[0-14]`|Intermediate registers 0-14; 96-bits each.|
-|`R_UniformRandom`|A uniform random source; 96-bits.|
+|`r[0-14]`|Intermediate registers 0-14; 96-bits each.|
+|`r?`|A uniform random source; 96-bits.|
 
 ### Comments
 
 ```
 // This is a line comment.
 start:
-  FOO // This is an inline comment.
+  foo // This is an inline comment.
 ```
 
 ### Symmetries
 
 Symmetries are supported natively in the engine.
 
-Default symmetries may be specified and symmetries can change during execution using `UseSymmetries` and `RestoreSymmetries`.
+Default symmetries may be specified and symmetries can change during execution using `usesymmetries` and `restoresymmetries`.
 
 Symmetries affect which sites are referred to.
 
 |Symmetry Name|Type|
 |-----|-----|
-|`R_000L`|rotation|Default rotation (normal).|
-|`R_090L`|rotation|90 degrees, counter-clockwise.|
-|`R_180L`|rotation|180 degrees, counter-clockwise.|
-|`R_270L`|rotation|270 degrees, counter-clockwise.|
-|`R_000R`|rotation|0 degrees, clockwise flipped.|
-|`R_090R`|rotation|90 degrees, clockwise flipped.|
-|`R_180R`|rotation|180 degrees, clockwise flipped.|
-|`R_270R`|rotation|270 degrees, clockwise flipped.|
-|`Flip_X`|flip|Same as `R_180R`|
-|`Flip_Y`|flip|Same as `R_000R`|
-|`Flip_XY`|flip|Same as `R_180L`|
-|`Reflect_X`|reflect|Same as `R_000L`, `Flip_X`|
-|`Reflect_Y`|reflect|Same as `R_000L`, `Flip_Y`|
-|`All`|convenience|All rotations.|
+|`R000L`|rotation|Default rotation (normal).|
+|`R090L`|rotation|90 degrees, counter-clockwise.|
+|`R180L`|rotation|180 degrees, counter-clockwise.|
+|`R270L`|rotation|270 degrees, counter-clockwise.|
+|`R000R`|rotation|0 degrees, clockwise flipped.|
+|`R090R`|rotation|90 degrees, clockwise flipped.|
+|`R180R`|rotation|180 degrees, clockwise flipped.|
+|`R270R`|rotation|270 degrees, clockwise flipped.|
+|`FlipX`|flip|Same as `R_180R`|
+|`FlipY`|flip|Same as `R_000R`|
+|`FlipXY`|flip|Same as `R_180L`|
+|`ReflectX`|reflect|Same as `R_000L`, `Flip_X`|
+|`ReflectY`|reflect|Same as `R_000L`, `Flip_Y`|
+|`ALL`|convenience|All rotations.|
 
 ### Special Operands
 
@@ -110,19 +110,19 @@ This expression may be appended to the end of any data to access fields in that 
 Anonymous fields may be referenced using the syntax: `$length(offset)`.
 
 ```
-.Field foo unsigned 1 0 // field named foo; 1-bit length; LSB at position 0.
+.field foo unsigned 1 0 // field named foo; 1-bit length; LSB at position 0.
 
   $foo        // $foo in Self atom; same as #0$field_name.
   $foo$signed // $foo as a signed value.
-  R_0$foo     // $foo in R_0.
+  r0$foo     // $foo in r0.
   #1$foo      // $foo in atom data at site #1.
-  R_1$1(10)   // anonymous field in the 11th bit of R_1.
+  r1$1(10)   // anonymous field in the 11th bit of r1.
 
 
-.Field active_count unsigned 4 1
-.Field is_active unsigned 1 0
+.field active_count unsigned 4 1
+.field is_active unsigned 1 0
 
-  Add R_0$active_count $active_count $is_active
+  add r0$active_count $active_count $is_active
 ```
 
 Some fields are built-in. These are also reserved names.
@@ -180,10 +180,10 @@ This is read only.
 A label is represented by label name and a `:`.
 
 ```
-  Copy R_0 1
+  copy r0 1
 loop:
-  Add R_0 R_0 R_0
-  Jmp loop
+  add r0 r0 r0
+  jump loop
 ```
 
 Control operands can jump to named labels.
@@ -192,8 +192,8 @@ A label at the end of the program is often provided, conventionally called `exit
 
 ```
   // ...
-  JmpNonzero exit $field
-  Sub $field $field 1
+  jumpnonzero exit $field
+  sub $field $field 1
 exit:
   // program ends
 ```
@@ -204,17 +204,17 @@ Meta-instructions are generally specified once at the start of a program.
 
 |Metadata||
 |--------|--------|
-|`.Name NAME`|The name of the element.|
-|`.Symbol SYMBOL`|A symbol for the element.|
-|`.Desc DESC`|A short description of the element; Repeatable.|
-|`.Author AUTHOR`|An author annotation. One author per line; Repeatable.|
-|`.License LICENSE`|An SPDX license name.|
-|`.Radius RADIUS`|A maximum radius for the element; Values `[0-4]` are valid.|
-|`.BgColor COLOR`|A background color for frontends to use.|
-|`.FgColor COLOR`|A foreground color for frontends to use.|
-|`.Symmetries SYMMETRY [SYMMETRIES...]`|Default symmetries to use.|
-|`.Field NAME TYPE POSITION BIT-LENGTH`|A named accessor to element data; Repeatable.|
-|`.Parameter NAME TYPE DEFAULT-VALUE`|A named constant parameter; Repeatable.|
+|`.name NAME`|The name of the element.|
+|`.symbol SYMBOL`|A symbol for the element.|
+|`.desc DESC`|A short description of the element; Repeatable.|
+|`.author AUTHOR`|An author annotation. One author per line; Repeatable.|
+|`.license LICENSE`|An SPDX license name.|
+|`.radius RADIUS`|A maximum radius for the element; Values `[0-4]` are valid.|
+|`.bgcolor COLOR`|A background color for frontends to use.|
+|`.fgcolor COLOR`|A foreground color for frontends to use.|
+|`.symmetries SYMMETRY [SYMMETRIES...]`|Default symmetries to use.|
+|`.field NAME TYPE POSITION BIT-LENGTH`|A named accessor to element data; Repeatable.|
+|`.parameter NAME TYPE DEFAULT-VALUE`|A named constant parameter; Repeatable.|
 
 Metadata are read only and not programmatically accessible.
 
@@ -234,36 +234,36 @@ Instructions are 64-bits. The layout is defined in [LAYOUT.md](LAYOUT.md).
 
 |Instruction||
 |--------|---------|
-|`Nop`|Execute an nothing operation.|
-|`Exit`|Exit the program immediately.|
-|`Copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
-|`Swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
-|`Scan DST SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask into `DST`.|
-|`UseSymmetries SYM [SYM...]`|Push the current symmetries onto the stack, and use the given ones.|
-|`RestoreSymmetries`|Pop the old symmetries off the stack and use them; When no symmetry is present, this is the default or `R_000L` (normal).|
-|`Push DST`|Push `DST` onto the stack.|
-|`Pop DST`|Pop a value off the stack into `DST`.|
-|`Call LABEL [N]`|Call a labelled routine and transparently push the current instruction pointer. Copy top `N` stack values as arguments (defaults to 0).|
-|`Ret [N]`|Restore the last instruction pointer value. Copy `N` arguments to the previous stack pointer (defaults to 0).| 
-|`Checksum DST SRC`|Checksum the atom at `SRC`. Store the checksum result into `DST`: 1 if checksum differs; 0 otherwise.|
-|`Add DST LHS RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
-|`Sub DST LHS RHS`|Store the result of `LHS - RHS` (arithmetic) into `DST`.|
-|`Negate DST SRC`|Store the result of `-SRC` (arithmetic) into `DST`.|
-|`Mod DST LHS RHS`|Store the result of `LHS % RHS` (arithmetic) into `DST`.|
-|`Mul DST LHS RHS`|Store the result of `LHS * RHS` (arithmetic) into `DST`.|
-|`Div DST LHS RHS`|Store the result of `LHS / RHS` (arithmetic) rounded down into `DST`.|
-|`LessThan DST LHS RHS`|Store the result of comparing `LHS < RHS` (arithmetic) into `DST`.|
-|`LessThanEqual DST LHS RHS`|Store the result of `LHS <= RHS` (arithmetic) into `DST`.|
-|`Or DST LHS RHS`|Store the result of `LHS \|\| RHS` (logical) into `DST`.|
-|`And DST LHS RHS`|Store the result of `LHS && RHS` (logical) into `DST`.|
-|`Xor DST LHS RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.|
-|`Equal DST LHS RHS`|Store the result of `LHS == RHS` (logical) into `DST`.|
-|`BitCount DST SRC`|Store the number of set bits from `SRC` (logical) into `DST`.|
-|`BitScanForward DST SRC`|Store the masked LSB index from `SRC` (logical) into `DST`.|
-|`BitScanReverse DST SRC`|Store the masked MSB index from `SRC` (logical) into `DST`.|
-|`LShift DST LHS RHS`|Store the result of `LHS << RHS` (logical) into `DST`.|
-|`RShift DST LHS RHS`|Store the result of `LHS >> RHS` (logical) into `DST`.|
-|`Jump LABEL`|Jump to `LABEL` unconditionally.|
-|`JumpRelativeOffset LABEL SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC` (may be signed).|
-|`JumpZero LABEL SRC`|Jump to `LABEL` iff `SRC == 0`.|
-|`JumpNonZero LABEL SRC`|Jump to `LABEL` iff `SRC <> 0`.|
+|`nop`|Execute an nothing operation.|
+|`exit`|Exit the program immediately.|
+|`copy DST SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
+|`swap DST SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
+|`scan DST SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask into `DST`.|
+|`usesymmetries SYM [SYM...]`|Push the current symmetries onto the stack, and use the given ones.|
+|`restoresymmetries`|Pop the old symmetries off the stack and use them; When no symmetry is present, this is the default or `R_000L` (normal).|
+|`push DST`|Push `DST` onto the stack.|
+|`pop DST`|Pop a value off the stack into `DST`.|
+|`call LABEL [N]`|Call a labelled routine and transparently push the current instruction pointer. Copy top `N` stack values as arguments (defaults to 0).|
+|`ret [N]`|Restore the last instruction pointer value. Copy `N` arguments to the previous stack pointer (defaults to 0).| 
+|`checksum DST SRC`|Checksum the atom at `SRC`. Store the checksum result into `DST`: 1 if checksum differs; 0 otherwise.|
+|`add DST LHS RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
+|`sub DST LHS RHS`|Store the result of `LHS - RHS` (arithmetic) into `DST`.|
+|`negate DST SRC`|Store the result of `-SRC` (arithmetic) into `DST`.|
+|`mod DST LHS RHS`|Store the result of `LHS % RHS` (arithmetic) into `DST`.|
+|`mul DST LHS RHS`|Store the result of `LHS * RHS` (arithmetic) into `DST`.|
+|`div DST LHS RHS`|Store the result of `LHS / RHS` (arithmetic) rounded down into `DST`.|
+|`lessthan DST LHS RHS`|Store the result of comparing `LHS < RHS` (arithmetic) into `DST`.|
+|`lessthanequal DST LHS RHS`|Store the result of `LHS <= RHS` (arithmetic) into `DST`.|
+|`or DST LHS RHS`|Store the result of `LHS \|\| RHS` (logical) into `DST`.|
+|`and DST LHS RHS`|Store the result of `LHS && RHS` (logical) into `DST`.|
+|`xor DST LHS RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.|
+|`equal DST LHS RHS`|Store the result of `LHS == RHS` (logical) into `DST`.|
+|`bitcount DST SRC`|Store the number of set bits from `SRC` (logical) into `DST`.|
+|`bitscanforward DST SRC`|Store the masked LSB index from `SRC` (logical) into `DST`.|
+|`bitscanreverse DST SRC`|Store the masked MSB index from `SRC` (logical) into `DST`.|
+|`lshift DST LHS RHS`|Store the result of `LHS << RHS` (logical) into `DST`.|
+|`rshift DST LHS RHS`|Store the result of `LHS >> RHS` (logical) into `DST`.|
+|`jump LABEL`|Jump to `LABEL` unconditionally.|
+|`jumprelativeoffset LABEL SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC` (may be signed).|
+|`jumpzero LABEL SRC`|Jump to `LABEL` iff `SRC == 0`.|
+|`jumpnonzero LABEL SRC`|Jump to `LABEL` iff `SRC <> 0`.|

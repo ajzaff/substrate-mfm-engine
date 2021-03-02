@@ -1,10 +1,14 @@
 mod arith;
 mod base;
+mod mfm;
 mod stack;
 
 use arith::*;
 use stack::*;
 use std::str::FromStr;
+
+#[macro_use]
+extern crate bitflags;
 
 #[macro_use]
 extern crate lalrpop_util;
@@ -16,12 +20,12 @@ fn main() {
     //     let y = U96(10);
 
     //     println!("{}", x + y)
-    let p = substrate::RegisterParser::new();
+    let p = substrate::DefaultSymmetriesParser::new();
 
-    let res = p.parse("r10");
+    let res = p.parse(".symmetries R000L | R090L");
 
     if res.is_ok() {
-        println!("{}", res.unwrap())
+        println!("{:?}", res.unwrap())
     } else {
         println!("{}", res.unwrap_err())
     }

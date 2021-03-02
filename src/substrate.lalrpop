@@ -1,18 +1,54 @@
 use crate::arith::{U96, I96};
-use crate::base::{Register};
+use crate::base::{Field, FieldSelector, Register, SiteNumber};
+use crate::mfm::{Symmetries, ElementEntry};
 use std::str::FromStr;
 
 grammar;
 
-pub BinNum: U96 = <s:r"0b[01]+"> => U96::from_str_radix(&s[2..], 2).unwrap();
+Ident: String = <s:r"[_A-Z][_A-Z0-9]*"> => s.to_string();
 
-pub DecNum: U96 = <s:r"[0-9]+"> => U96::from_str_radix(s, 10).unwrap();
+BinNum: U96 = <s:r"0b[01]+"> => U96::from_str_radix(&s[2..], 2).unwrap();
 
-pub HexNum: U96 = <s:r"0x[0-9a-fA-F]+"> => U96::from_str_radix(&s[2..], 16).unwrap();
+DecNum: U96 = <s:r"[1-9][0-9]+|[0-9]"> => U96::from_str_radix(s, 10).unwrap();
 
-pub SignedNum: I96 = <s:r"-[0-9]+"> => I96::from_str_radix(s, 10).unwrap();
+HexNum: U96 = <s:r"0x[0-9a-fA-F]+"> => U96::from_str_radix(&s[2..], 16).unwrap();
 
-pub Register: Register = {
-    "r?" => Register::RRand,
-    <s:r"r1[0-9]+|r[0-9]"> => Register::from_usize(usize::from_str(&s[1..]).unwrap()).unwrap(), 
+SignedNum: I96 = <s:r"-[0-9]+"> => I96::from_str_radix(s, 10).unwrap();
+
+Register: Register = {
+    "r?" => Register(15),
+    <s:r"r[1-9][0-9]+|r[0-9]"> => Register(usize::from_str(&s[1..]).unwrap()), 
+};
+
+SiteNum: SiteNumber = <s:r"#40|#[1-3][0-9]|#[0-9]"> => SiteNumber(u8::from_str(&s[1..]).unwrap());
+
+FieldDeclaration: Field = {
+    ".field" <i:Ident> <o:r"[1-9][0-9]+|[0-9]"> <n:r"[1-9][0-9]+|[0-9]"> => Field{
+        name: i,
+        sel: FieldSelector{
+            offset: u8::from_str(o).unwrap(),
+            length: u8::from_str(n).unwrap(),
+        }},
+};
+
+Symmetry: Symmetries = {
+    "NONE" => Symmetries::NONE,
+    "R000L" => Symmetries::R000L,
+    "R090L" => Symmetries::R090L,
+    "R180L" => Symmetries::R180L,
+    "R270L" => Symmetries::R270L,
+    "R000R" => Symmetries::R000R,
+    "R090R" => Symmetries::R090R,
+    "R180R" => Symmetries::R180R,
+    "R270R" => Symmetries::R270R,
+    "ALL" => Symmetries::ALL,
+};
+
+Symmetries: Symmetries = {
+    <s:Symmetry> => s,
+    <s:Symmetry> "|" <ss:Symmetries> => s | ss,
+};
+
+pub DefaultSymmetries: ElementEntry<Symmetries> = {
+    ".symmetries" <ss:Symmetries> => ElementEntry::<Symmetries>("symmetries", ss),
 };

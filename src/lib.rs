@@ -1,9 +1,11 @@
 mod base;
+mod mfm;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 use crate::base::Register;
+use crate::mfm::Symmetries;
 use std::vec::Vec;
 
 #[derive(Copy, Clone)]
@@ -44,7 +46,7 @@ impl<'a> ElementProperties<'a> {
     radius: 0,
     bg_color: "#000",
     fg_color: "#000",
-    symmetries: Symmetries::None,
+    symmetries: Symmetries::R000L,
     fields: &[],
     params: &[],
   };
@@ -60,21 +62,6 @@ pub struct NamedField<'a> {
 pub struct NamedParameter<'a> {
   name: &'a str,
   value: u128,
-}
-
-#[derive(Copy, Clone)]
-#[repr(u8)]
-pub enum Symmetries {
-  None = 0,
-  R000L = 1, // Normal.
-  R090L = 2,
-  R180L = 4, // Flip_XY.
-  R270L = 8,
-  R000R = 16, // Flip_Y.
-  R090R = 32,
-  R180R = 64, // Flip_X.
-  R270R = 128,
-  All = 255,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
@@ -215,14 +202,7 @@ impl<'a> Runtime<'a> {
     match x.get_type() {
       Some(ValueType::Inline) => x.get_inline().map(|x| x as u128).ok_or("bad inline fetch"),
       Some(ValueType::Heap) => x.get_heap().map(|x| x as u128).ok_or("bad heap fetch"),
-      Some(ValueType::Register) => x
-        .get_register()
-        .and_then(|v| match Register::from_usize(v as usize) {
-          Some(Register::RRand) => Some(rand::random::<u128>() & Atom::MASK),
-          Some(x) => Some(self.registers[x as usize]),
-          None => None,
-        })
-        .ok_or("bad register"),
+      Some(ValueType::Register) => todo!(), // FIXME
       Some(ValueType::Site) => x
         .get_site()
         .and_then(|v| match Site::from_usize(v as usize) {
@@ -238,14 +218,7 @@ impl<'a> Runtime<'a> {
     match dst.get_type() {
       Some(ValueType::Inline) => Err("inline value is immutable"),
       Some(ValueType::Heap) => Err("heap is immutable"),
-      Some(ValueType::Register) => dst
-        .get_register()
-        .and_then(|v| match Register::from_usize(v as usize) {
-          Some(Register::RRand) => None,
-          Some(x) => Some(&mut self.registers[x as usize]),
-          None => None,
-        })
-        .ok_or("bad register"),
+      Some(ValueType::Register) => todo!(), // FIXME
       Some(ValueType::Site) => dst
         .get_site()
         .and_then(|v| match Site::from_usize(v as usize) {
