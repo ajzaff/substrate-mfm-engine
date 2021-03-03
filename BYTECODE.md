@@ -38,13 +38,19 @@ Size of the constant pool described in the following section.
 
 The constant pool holds a variety of structured data from the program.
 
-* Parameter values
-* Field Descriptors
-* Element type numbers
-* Constant arguments larger than `2^16-1`
-* UTF-8 Strings
+### Entry Types
 
-For fixed 96-bit values:
+|||
+|---|---|
+|0|Parameter values|
+|1|Constant arguments larger than `2^16-1`|
+|2|Field Descriptors|
+|3|Element type numbers|
+|4|UTF-8 Strings|
+
+#### Fixed Entries
+
+Used by 96-bit parameters and constants.
 
 ```
 cp_info {
@@ -53,13 +59,37 @@ cp_info {
 }
 ```
 
-The following entry format is used for strings only:
+#### Strings
 
 ```
 cp_info {
   u1       entry_type;
   u2       length;
   u1       [data; length];
+}
+```
+
+#### Field Descriptors
+
+```
+cp_info {
+  u1       entry_type;
+  u2       name_index;
+  field    field;
+}
+
+field {
+  u1       offset;
+  u1       length;
+}
+```
+
+#### Element Types
+
+```
+cp_info {
+  u1       entry_type;
+  u2       data;
 }
 ```
 
