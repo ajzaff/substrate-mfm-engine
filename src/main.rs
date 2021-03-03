@@ -16,9 +16,17 @@ fn main() {
     //     let y = U96(10);
 
     //     println!("{}", x + y)
-    let p = substrate::InstructionParser::new();
+    let p = substrate::FileParser::new();
 
-    let res = p.parse("swap c,$b");
+    let res = p.parse(
+        ".name \"My Atom\"
+.symbol \"Fx\"
+.field foo,0,3
+.parameter x,1
+
+    swap c,%\"My Atom\"
+",
+    );
 
     if res.is_ok() {
         println!("{:?}", res.unwrap())

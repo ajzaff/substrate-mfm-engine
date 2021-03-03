@@ -6,6 +6,7 @@ use crate::ast;
 use crate::ast::{Node, Arg, Args};
 use std::str::FromStr;
 use enquote::unquote;
+use std::vec::Vec;
 
 grammar;
 
@@ -28,7 +29,7 @@ ConstExpr: Const = {
     SignedNum,
 }
 
-Color: &'input str = <s:r"#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}"> => s;
+Color: String = <s:r"#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}"> => s.to_owned();
 
 Symmetry: Symmetries = {
     <s:Ident> => Symmetries::from_str(s.as_str()).unwrap(),
@@ -40,14 +41,14 @@ Symmetries: Symmetries = {
 }
 
 pub MetaInstruction: Node = {
-    ".name" <i:String> => Node::MetaInstruction(MetaOp::Name, Args::Unary(Arg::String(i.to_string()))),
-    ".symbol" <i:Ident> => Node::MetaInstruction(MetaOp::Symbol, Args::Unary(Arg::String(i.to_string()))),
-    ".desc" <i:String> => Node::MetaInstruction(MetaOp::Desc, Args::Unary(Arg::String(i.to_string()))),
-    ".author" <i:String> => Node::MetaInstruction(MetaOp::Author, Args::Unary(Arg::String(i.to_string()))),
-    ".license" <i:String> => Node::MetaInstruction(MetaOp::License, Args::Unary(Arg::String(i.to_string()))),
+    ".name" <i:String> => Node::MetaInstruction(MetaOp::Name, Args::Unary(Arg::String(i))),
+    ".symbol" <i:String> => Node::MetaInstruction(MetaOp::Symbol, Args::Unary(Arg::String(i))),
+    ".desc" <i:String> => Node::MetaInstruction(MetaOp::Desc, Args::Unary(Arg::String(i))),
+    ".author" <i:String> => Node::MetaInstruction(MetaOp::Author, Args::Unary(Arg::String(i))),
+    ".license" <i:String> => Node::MetaInstruction(MetaOp::License, Args::Unary(Arg::String(i))),
     <p:r".radius [0-4]"> => Node::MetaInstruction(MetaOp::Radius, Args::Unary(Arg::U8(u8::from_str(&p[8..]).unwrap()))),
-    ".bgcolor" <i:Color> => Node::MetaInstruction(MetaOp::BgColor, Args::Unary(Arg::String(i.to_string()))),
-    ".fgcolor" <i:Color> => Node::MetaInstruction(MetaOp::FgColor, Args::Unary(Arg::String(i.to_string()))),
+    ".bgcolor" <i:Color> => Node::MetaInstruction(MetaOp::BgColor, Args::Unary(Arg::String(i))),
+    ".fgcolor" <i:Color> => Node::MetaInstruction(MetaOp::FgColor, Args::Unary(Arg::String(i))),
     ".symmetries" <ss:Symmetries> => Node::MetaInstruction(MetaOp::Symmetries, Args::Unary(Arg::Symmetries(ss))),
     ".field" <i:Ident> "," <o:r"[1-9][0-9]+|[0-9]"> "," <n:r"[1-9][0-9]+|[0-9]"> => Node::MetaInstruction(
         MetaOp::Field,
@@ -56,7 +57,7 @@ pub MetaInstruction: Node = {
             Arg::U8(u8::from_str(o).unwrap()),
             Arg::U8(u8::from_str(n).unwrap()),
         )),
-    ".parameter" <i:Ident> "," <c:ConstExpr> "," => Node::MetaInstruction(MetaOp::Parameter, Args::Binary(
+    ".parameter" <i:Ident> "," <c:ConstExpr> => Node::MetaInstruction(MetaOp::Parameter, Args::Binary(
         Arg::String(i),
         Arg::Const(c, ast::Field::Selector(base::FieldSelector::ALL)))),
 }
@@ -71,6 +72,7 @@ FieldRef: ast::Field = {
 
 TypeRef: Arg = {
     "%" <i:Ident> => Arg::Type(i),
+    "%" <i:String> => Arg::Type(i),
 }
 
 RegisterRef: ast::Register = {
@@ -122,4 +124,29 @@ pub Instruction: Node = {
     "jumprelativeoffset" <i:Ident> "," <b:Arg> => Node::Instruction(Op::Jump, Args::Binary(Arg::Label(i), b)),
     "jumpzero" <i:Ident> "," <b:Arg> => Node::Instruction(Op::JumpZero, Args::Binary(Arg::Label(i), b)),
     "jumpnonzero" <i:Ident> "," <b:Arg> => Node::Instruction(Op::JumpNonZero, Args::Binary(Arg::Label(i), b)),
+}
+
+FileHeader: Vec<Node> = {
+    <v:MetaInstruction> => vec![v],
+    <mut vs:FileHeader> <v:MetaInstruction> => {
+        vs.push(v);
+        vs
+    },
+}
+
+FileLine: Node = {
+    Label,
+    Instruction,
+}
+
+FileBody: Vec<Node> = {
+    <v:FileLine> => vec![v],
+    <mut vs:FileBody> <v:FileLine> => {
+        vs.push(v);
+        vs
+    },
+}
+
+pub File: ast::File = {
+    <a:FileHeader> <b:FileBody> => ast::File{header: a, body: b},
 }

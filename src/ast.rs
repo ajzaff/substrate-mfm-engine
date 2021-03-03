@@ -42,3 +42,9 @@ pub enum Register {
     Random,
     R(usize),
 }
+
+#[derive(Debug)]
+pub struct File {
+    pub header: Vec<Node>,
+    pub body: Vec<Node>,
+}
