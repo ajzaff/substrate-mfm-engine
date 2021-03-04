@@ -32,7 +32,7 @@ ConstExpr: Const = {
 Color: String = <s:r"#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}"> => s.to_owned();
 
 Symmetry: Symmetries = {
-    <s:Ident> => Symmetries::from_str(s.as_str()).unwrap(),
+    <s:r"NONE|R000L|R090L|R180L|R270L|R000R|R090R|R180R|R270R|ALL"> => Symmetries::from_str(s).unwrap(),
 }
 
 Symmetries: Symmetries = {
@@ -93,7 +93,8 @@ Arg: Arg = {
 
 pub Instruction: Node = {
     "nop" => Node::Instruction(Op::Nop, Args::Null),
-    "exit" =>  Node::Instruction(Op::Exit, Args::Null),
+    "exit" => Node::Instruction(Op::Exit, Args::Null),
+    "copy" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Copy, Args::Binary(a, b)),
     "swap" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Swap, Args::Binary(a, b)),
     "scan" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Scan, Args::Binary(a, b)),
     "usesymmetries" <s:Symmetries> => Node::Instruction(Op::UseSymmetries, Args::Unary(Arg::Symmetries(s))),
@@ -148,5 +149,6 @@ FileBody: Vec<Node> = {
 }
 
 pub File: ast::File = {
-    <a:FileHeader> <b:FileBody> => ast::File{header: a, body: b},
+    () => ast::File{header: vec![], body: vec![]},
+    <a:FileHeader> <b:FileBody?> => ast::File{header: a, body: b.unwrap_or(vec![])},
 }

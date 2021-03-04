@@ -1,7 +1,7 @@
 pub mod arith;
 pub mod op;
 
-use crate::base::arith::{I96, U96};
+use arith::{I96, U96};
 use bitflags::bitflags;
 use std::fmt;
 use std::str::FromStr;
