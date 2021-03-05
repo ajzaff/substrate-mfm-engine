@@ -53,5 +53,5 @@ fn ewac_main() -> Result<(), failure::Error> {
         return Err(format_err!("failed to compile input file: {}", why));
     }
 
-    Ok(())
+    todo!()
 }

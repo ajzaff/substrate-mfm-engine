@@ -16,6 +16,8 @@ File {
 }
 ```
 
+All multi-byte numeric sequences are little-endian encoded.
+
 ## Magic Number
 
 ```
@@ -84,22 +86,13 @@ field {
 }
 ```
 
-#### Element Types
-
-```
-cp_info {
-  u1       entry_type;
-  u2       data;
-}
-```
-
 ## Metadata Size
 
 The size of the metadata table described in the following section.
 
 ## Metadata Table
 
-Metadata for the program. Since all values are stored within the constant pool, a fixed-size structure suffices.
+Metadata for the program. These are meta-instructions.
 
 ```
 md_info {

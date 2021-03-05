@@ -77,7 +77,13 @@ impl FromStr for Symmetries {
     }
 }
 
-#[derive(Debug)]
+impl Symmetries {
+    fn to_u8(&self) -> u8 {
+        self.bits as u8
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum Const {
     Unsigned(U96),
     Signed(I96),

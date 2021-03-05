@@ -29,8 +29,6 @@ ConstExpr: Const = {
     SignedNum,
 }
 
-Color: String = <s:r"#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}"> => s.to_owned();
-
 Symmetry: Symmetries = {
     <s:r"NONE|R000L|R090L|R180L|R270L|R000R|R090R|R180R|R270R|ALL"> => Symmetries::from_str(s).unwrap(),
 }
@@ -47,19 +45,17 @@ pub MetaInstruction: Node = {
     ".author" <i:String> => Node::MetaInstruction(MetaOp::Author, Args::Unary(Arg::String(i))),
     ".license" <i:String> => Node::MetaInstruction(MetaOp::License, Args::Unary(Arg::String(i))),
     <p:r".radius [0-4]"> => Node::MetaInstruction(MetaOp::Radius, Args::Unary(Arg::U8(u8::from_str(&p[8..]).unwrap()))),
-    ".bgcolor" <i:Color> => Node::MetaInstruction(MetaOp::BgColor, Args::Unary(Arg::String(i))),
-    ".fgcolor" <i:Color> => Node::MetaInstruction(MetaOp::FgColor, Args::Unary(Arg::String(i))),
+    ".bgcolor" <i:String> => Node::MetaInstruction(MetaOp::BgColor, Args::Unary(Arg::String(i))),
+    ".fgcolor" <i:String> => Node::MetaInstruction(MetaOp::FgColor, Args::Unary(Arg::String(i))),
     ".symmetries" <ss:Symmetries> => Node::MetaInstruction(MetaOp::Symmetries, Args::Unary(Arg::Symmetries(ss))),
     ".field" <i:Ident> "," <o:r"[1-9][0-9]+|[0-9]"> "," <n:r"[1-9][0-9]+|[0-9]"> => Node::MetaInstruction(
         MetaOp::Field,
-        Args::Ternary(
-            Arg::String(i),
-            Arg::U8(u8::from_str(o).unwrap()),
-            Arg::U8(u8::from_str(n).unwrap()),
-        )),
-    ".parameter" <i:Ident> "," <c:ConstExpr> => Node::MetaInstruction(MetaOp::Parameter, Args::Binary(
-        Arg::String(i),
-        Arg::Const(c, ast::Field::Selector(base::FieldSelector::ALL)))),
+        Args::Unary(Arg::Const(i, base::Const::Unsigned(U96(0)), ast::Field::Selector(base::FieldSelector{
+            offset: u8::from_str(o).unwrap(),
+            length: u8::from_str(n).unwrap(),
+        })))),
+    ".parameter" <i:Ident> "," <c:ConstExpr> => Node::MetaInstruction(MetaOp::Parameter, Args::Unary(
+        Arg::Const(i, c, ast::Field::Selector(base::FieldSelector::ALL)))),
 }
 
 Label: Node = <i:Ident> ":" => Node::Label(i);

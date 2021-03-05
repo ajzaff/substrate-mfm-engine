@@ -2,14 +2,14 @@ use crate::base;
 use crate::base::op::{MetaOp, Op};
 use crate::base::{Const, SiteNumber, Symmetries};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Node {
     Label(String),
     MetaInstruction(MetaOp, Args),
     Instruction(Op, Args),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Args {
     Null,
     Unary(Arg),
@@ -17,7 +17,7 @@ pub enum Args {
     Ternary(Arg, Arg, Arg),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Arg {
     U8(u8),
     String(String),
@@ -25,19 +25,19 @@ pub enum Arg {
     SiteNumber(SiteNumber, Field),
     Symmetries(Symmetries),
     Register(Register, Field),
-    Const(Const, Field),
+    Const(String, Const, Field),
     ConstRef(String, Field),
     Type(String),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Field {
     Ref(String),
     Field(base::Field),
     Selector(base::FieldSelector),
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Register {
     Random,
     R(usize),
