@@ -50,14 +50,50 @@ The constant pool holds a variety of structured data from the program.
 |3|Element type numbers|
 |4|UTF-8 Strings|
 
-#### Fixed Entries
-
-Used by 96-bit parameters and constants.
+#### Parameter
 
 ```
 cp_info {
   u1       entry_type;
-  u12      data;
+  u2       length;
+  u1       [name; length];
+  u12      param;
+}
+```
+
+#### Const
+
+```
+cp_info {
+  u1       entry_type;
+  u12      const;
+}
+```
+
+#### Field Descriptors
+
+```
+cp_info {
+  u1       entry_type;
+  u2       length;
+  u1       [name; length];
+  field    field;
+}
+
+field {
+  u1       offset;
+  u1       length;
+}
+```
+
+#### Element Type Number
+
+```
+cp_info {
+  u1       entry_type;
+  u2       length;
+  u1       [name; length];
+  u2       num;
 }
 ```
 
@@ -68,21 +104,6 @@ cp_info {
   u1       entry_type;
   u2       length;
   u1       [data; length];
-}
-```
-
-#### Field Descriptors
-
-```
-cp_info {
-  u1       entry_type;
-  u2       name_index;
-  field    field;
-}
-
-field {
-  u1       offset;
-  u1       length;
 }
 ```
 

@@ -9,7 +9,9 @@ mod code;
 
 use atty::Stream;
 use quicli::prelude::*;
+use std::fs;
 use std::fs::File;
+use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use structopt::StructOpt;
@@ -53,5 +55,14 @@ fn ewac_main() -> Result<(), failure::Error> {
         return Err(format_err!("failed to compile input file: {}", why));
     }
 
-    todo!()
+    if args.output == "-" {
+        io::stdout().write_all(out.unwrap().as_slice());
+        return Ok(());
+    }
+
+    if let Err(why) = fs::write(Path::new::<String>(&args.output), out.unwrap()) {
+        return Err(format_err!("failed to write output file: {}", why));
+    }
+
+    Ok(())
 }

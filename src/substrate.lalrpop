@@ -3,7 +3,7 @@ use crate::base::arith::{U96, I96};
 use crate::base::op::{Op, MetaOp};
 use crate::base::{Const, Symmetries, SiteNumber};
 use crate::ast;
-use crate::ast::{Node, Arg, Args};
+use crate::ast::{Node, MetaArg, Arg, Args};
 use std::str::FromStr;
 use enquote::unquote;
 use std::vec::Vec;
@@ -39,23 +39,22 @@ Symmetries: Symmetries = {
 }
 
 pub MetaInstruction: Node = {
-    ".name" <i:String> => Node::MetaInstruction(MetaOp::Name, Args::Unary(Arg::String(i))),
-    ".symbol" <i:String> => Node::MetaInstruction(MetaOp::Symbol, Args::Unary(Arg::String(i))),
-    ".desc" <i:String> => Node::MetaInstruction(MetaOp::Desc, Args::Unary(Arg::String(i))),
-    ".author" <i:String> => Node::MetaInstruction(MetaOp::Author, Args::Unary(Arg::String(i))),
-    ".license" <i:String> => Node::MetaInstruction(MetaOp::License, Args::Unary(Arg::String(i))),
-    <p:r".radius [0-4]"> => Node::MetaInstruction(MetaOp::Radius, Args::Unary(Arg::U8(u8::from_str(&p[8..]).unwrap()))),
-    ".bgcolor" <i:String> => Node::MetaInstruction(MetaOp::BgColor, Args::Unary(Arg::String(i))),
-    ".fgcolor" <i:String> => Node::MetaInstruction(MetaOp::FgColor, Args::Unary(Arg::String(i))),
-    ".symmetries" <ss:Symmetries> => Node::MetaInstruction(MetaOp::Symmetries, Args::Unary(Arg::Symmetries(ss))),
+    ".name" <i:String> => Node::MetaInstruction(MetaOp::Name, MetaArg::String(i)),
+    ".symbol" <i:String> => Node::MetaInstruction(MetaOp::Symbol, MetaArg::String(i)),
+    ".desc" <i:String> => Node::MetaInstruction(MetaOp::Desc, MetaArg::String(i)),
+    ".author" <i:String> => Node::MetaInstruction(MetaOp::Author, MetaArg::String(i)),
+    ".license" <i:String> => Node::MetaInstruction(MetaOp::License, MetaArg::String(i)),
+    <p:r".radius [0-4]"> => Node::MetaInstruction(MetaOp::Radius, MetaArg::Radius(u8::from_str(&p[8..]).unwrap())),
+    ".bgcolor" <i:String> => Node::MetaInstruction(MetaOp::BgColor, MetaArg::String(i)),
+    ".fgcolor" <i:String> => Node::MetaInstruction(MetaOp::FgColor, MetaArg::String(i)),
+    ".symmetries" <ss:Symmetries> => Node::MetaInstruction(MetaOp::Symmetries, MetaArg::Symmetries(ss)),
     ".field" <i:Ident> "," <o:r"[1-9][0-9]+|[0-9]"> "," <n:r"[1-9][0-9]+|[0-9]"> => Node::MetaInstruction(
         MetaOp::Field,
-        Args::Unary(Arg::Const(i, base::Const::Unsigned(U96(0)), ast::Field::Selector(base::FieldSelector{
+        MetaArg::Field(i, base::FieldSelector{
             offset: u8::from_str(o).unwrap(),
             length: u8::from_str(n).unwrap(),
-        })))),
-    ".parameter" <i:Ident> "," <c:ConstExpr> => Node::MetaInstruction(MetaOp::Parameter, Args::Unary(
-        Arg::Const(i, c, ast::Field::Selector(base::FieldSelector::ALL)))),
+        })),
+    ".parameter" <i:Ident> "," <c:ConstExpr> => Node::MetaInstruction(MetaOp::Parameter, MetaArg::Parameter(i, c)),
 }
 
 Label: Node = <i:Ident> ":" => Node::Label(i);
@@ -145,6 +144,5 @@ FileBody: Vec<Node> = {
 }
 
 pub File: ast::File = {
-    () => ast::File{header: vec![], body: vec![]},
     <a:FileHeader> <b:FileBody?> => ast::File{header: a, body: b.unwrap_or(vec![])},
 }

@@ -25,19 +25,11 @@ This appendix document defines the bit layout for the virtual machine.
 
 Instruction argments use a 16-bit layout.
 
-||Value Type|Data/Reference|Field (Optional)|
+||Value Type|Inline?|Field (Optional)|
 |---|---|---|---|
-|size|2|14||
-|size (reference)|2|7|7|
+|size|1|15||
 
-Over the following possible value types:
-
-|Value Enumeration|Value|
-|---|---|
-|Inline|0|
-|Heap|1|
-|Register (Reference)|2|
-|Site (Reference)|3|
+The inline bit is used when the value is a constant less than 2^15.
 
 ### Constants
 

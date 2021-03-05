@@ -3,7 +3,10 @@ pub mod op;
 
 use arith::{I96, U96};
 use bitflags::bitflags;
+use byteorder::LittleEndian;
+use byteorder::WriteBytesExt;
 use std::fmt;
+use std::io;
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
@@ -12,15 +15,6 @@ pub struct SiteNumber(pub u8);
 impl fmt::Display for SiteNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "#{}", self.0)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Field(pub String, pub FieldSelector);
-
-impl fmt::Display for Field {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.0, self.1)
     }
 }
 
@@ -83,7 +77,7 @@ impl Symmetries {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Const {
     Unsigned(U96),
     Signed(I96),
