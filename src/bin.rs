@@ -56,7 +56,7 @@ fn ewac_main() -> Result<(), failure::Error> {
     }
 
     if args.output == "-" {
-        io::stdout().write_all(out.unwrap().as_slice());
+        io::stdout().write_all(out.unwrap().as_slice())?;
         return Ok(());
     }
 
