@@ -7,16 +7,15 @@ File {
   u4          magic;
   u2          minor_version;
   u2          major_version;
-  u2          constant_pool_size;
-  cp_info     [constant_pool; constant_pool_size];
+  u8          compile_tag;
   u1          metadata_size;
-  md_info     [metadata; meta_instr_size];
+  md_entry    [metadata; metadata_size];
   u2          code_lines;
-  u8          [code; code_lines];
+  var         [code; code_lines];
 }
 ```
 
-All multi-byte numeric sequences are little-endian encoded.
+All multi-byte numeric sequences are big-endian encoded.
 
 ## Magic Number
 
@@ -32,100 +31,49 @@ Currently set to 1.
 
 Currently set to 0.
 
-## Constant Pool Size
+## Compile Tag
 
-Size of the constant pool described in the following section.
-
-## Constant Pool
-
-The constant pool holds a variety of structured data from the program.
-
-### Entry Types
-
-|||
-|---|---|
-|0|Parameter values|
-|1|Constant arguments larger than `2^16-1`|
-|2|Field Descriptors|
-|3|Element type numbers|
-|4|UTF-8 Strings|
-
-#### Parameter
-
-```
-cp_info {
-  u1       entry_type;
-  u2       length;
-  u1       [name; length];
-  u12      param;
-}
-```
-
-#### Const
-
-```
-cp_info {
-  u1       entry_type;
-  u12      const;
-}
-```
-
-#### Field Descriptors
-
-```
-cp_info {
-  u1       entry_type;
-  u2       length;
-  u1       [name; length];
-  field    field;
-}
-
-field {
-  u1       offset;
-  u1       length;
-}
-```
-
-#### Element Type Number
-
-```
-cp_info {
-  u1       entry_type;
-  u2       length;
-  u1       [name; length];
-  u2       num;
-}
-```
-
-#### Strings
-
-```
-cp_info {
-  u1       entry_type;
-  u2       length;
-  u1       [data; length];
-}
-```
+A compile tag is used to identify a batch of files compiled together. In order to create a consistent type numbering (physics), only files with the same compile tag should be used together.
 
 ## Metadata Size
 
-The size of the metadata table described in the following section.
+Size of the constant pool described in the following section.
 
-## Metadata Table
+## Metadata
 
-Metadata for the program. These are meta-instructions.
+The metadata map holds structured data for the program which are mostly UTF-8 Strings.
+
+### String Entry
+
+Strings have `entry_type` 0.
 
 ```
-md_info {
-  u2       entry_type;
-  u2       cp_index;
+md_entry {
+  u1       entry_type;
+  u2       len;
+  u1       [data; len];
 }
 ```
 
 ## Code Lines
 
-The number of code lines in the following table. This defines the legal range of instruction pointers as `[0, code_lines)`. Labels and comments do not count as code lines.
+The total number of code lines. This defines the legal range of instruction pointers as `[0, code_lines)`. Labels and comments do not count as code lines.
 
 ## Code
 
-Code is an array of fixed 64-bit instructions. The [LAYOUT](LAYOUT.md) document defines the actual instruction layout.
+Code consists of varint-encoded opcodes and arguments in reverse polish notation.
+
+Example encoding:
+
+```
+[u1; overhead] [u16; instruction] [u1; overhead] [u96; arg] ...
+```
+
+The overhead byte enum:
+
+```
+enum overhead {
+  instruction = 0;
+  arg = 1;
+}
+```

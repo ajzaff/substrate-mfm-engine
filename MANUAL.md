@@ -4,10 +4,7 @@ A specification for MFM VMs implemented by the Substrate engine.
 
 ## Introduction
 
-This manual contains a specification for MFM VMs.
-
-This is intended to provide instructions in case anyone finds themselves providing a
-compliant implementation.
+This manual contains a specification for a MFM VM.
 
 Some background on the project is assumed.
 
@@ -42,17 +39,17 @@ A constant typed value can be used wherever a constant expression is expected.
 
 Constants are limited to 96-bits in size.
 
-||`unsigned`|`signed`|hex|
+||`unsigned`|`signed`|
 |---|---|---|---|
-|Min|`0`|`-2^95`|0x0|
-|Max|`2^96-1`|`2^95-1`|0xFFFFFFFFFFFFFFFFFFFFFFFF|
+|Min|`0`|`-2^95`|
+|Max|`2^96-1`|`2^95-1`|
 
 ### Registers
 
 |Register Name||
 |--------|---------|
-|`r[0-14]`|Intermediate registers 0-14; 96-bits each.|
-|`r?`|A uniform random source; 96-bits.|
+|`R[0-14]`|Intermediate registers 0-14; 96-bits each.|
+|`R?`|A uniform random source; 96-bits.|
 
 ### Comments
 
@@ -80,11 +77,6 @@ Symmetries affect which sites are referred to.
 |`R090R`|rotation|90 degrees, clockwise flipped.|
 |`R180R`|rotation|180 degrees, clockwise flipped.|
 |`R270R`|rotation|270 degrees, clockwise flipped.|
-|`FlipX`|flip|Same as `R_180R`|
-|`FlipY`|flip|Same as `R_000R`|
-|`FlipXY`|flip|Same as `R_180L`|
-|`ReflectX`|reflect|Same as `R_000L`, `Flip_X`|
-|`ReflectY`|reflect|Same as `R_000L`, `Flip_Y`|
 |`ALL`|convenience|All rotations.|
 
 ### Special Operands
@@ -96,6 +88,7 @@ A few special operands are provided. They are as follows:
 |`$`|Field operand. Used to access named fields.|
 |`#`|Window operand. Used to access the event window.|
 |`%`|Type operand. Used to get the atom's type from its common name.|
+|`_`|Skip operator. Used to skip arguments in instructions, instead using what is atop the stack.|
 
 #### Field Operand (`$`)
 
@@ -108,22 +101,22 @@ This expression may be appended to the end of any data to access fields in that 
 * While reading: data fields are shifted such that the LSB is zero.
 * While writing: values are likewise corrected, and truncated to fit within `length`-bits.
 
-Anonymous fields may be referenced using the syntax: `$length(offset)`.
+Anonymous fields may be referenced using the syntax: `$(offset; length)`.
 
 ```
-.field foo unsigned 1 0 // field named foo; 1-bit length; LSB at position 0.
+.field foo 1 0 // field named foo; 1-bit length; LSB at position 0.
 
   $foo        // $foo in Self atom; same as #0$field_name.
   $foo$signed // $foo as a signed value.
-  r0$foo     // $foo in r0.
+  R0$foo      // $foo in R0.
   #1$foo      // $foo in atom data at site #1.
-  r1$1(10)   // anonymous field in the 11th bit of r1.
+  R1$(10; 1)  // anonymous field in the 11th bit of R1.
 
 
-.field active_count unsigned 4 1
-.field is_active unsigned 1 0
+.field active_count 4 1
+.field is_active 1 0
 
-  add r0$active_count $active_count $is_active
+  add $active_count $is_active
 ```
 
 Some fields are built-in. These are also reserved names.
@@ -170,20 +163,38 @@ Type names cannot begin with a number.
 This is read only.
 
 ```
-  %Empty // by convention == 0.
-  %DReg  // e.g. 1.
-  %Res   // e.g. 2.
-  %Self  // type of the current atom.
+  %Empty       // by convention == 0.
+  %DReg        // e.g. 1.
+  %Res         // e.g. 2.
+  %Self        // type of the current atom.
+  %"Long Name" // Long name
 ```
+
+#### Skip Operator (`_`)
+
+The skip operator can be used for syntactic sugar.
+
+```
+  add _,R0
+```
+
+Is the same as:
+
+```
+  pop R1
+  add R1,R0
+```
+
+But without the extra pop. It may be useful in some situations.
 
 ### Labels
 
 A label is represented by label name and a `:`.
 
 ```
-  copy r0 1
+  copy R0 1
 loop:
-  add r0 r0 r0
+  add R0 R0
   jump loop
 ```
 
@@ -194,7 +205,7 @@ A label at the end of the program is often provided, conventionally called `exit
 ```
   // ...
   jumpnonzero exit $field
-  sub $field $field 1
+  sub $field 1
 exit:
   // program ends
 ```
@@ -229,8 +240,6 @@ Instructions fall roughly into one of three informal categories:
 * **Logical**: Arithmetic using basic types and a stack.
 * **Control**: Program flow control.
 
-Placeholders `DST`, `SRC`, `LHS`, and `RHS` refer to any expression. `DST` should be a writeable.
-
 Instructions are 64-bits. The layout is defined in [LAYOUT.md](LAYOUT.md).
 
 |Instruction||
@@ -238,32 +247,32 @@ Instructions are 64-bits. The layout is defined in [LAYOUT.md](LAYOUT.md).
 |`nop`|Execute an nothing operation.|
 |`exit`|Exit the program immediately.|
 |`copy DST,SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
-|`swap DST,SRC`|Swap the values of `SRC` and `DST`. Swap the atoms at `SRC` and `DST`.|
-|`scan DST,SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask into `DST`.|
-|`usesymmetries SYM|[SYM...]`|Push the current symmetries onto the stack, and use the given ones.|
-|`restoresymmetries`|Pop the old symmetries off the stack and use them; When no symmetry is present, this is the default or `R_000L` (normal).|
-|`push DST`|Push `DST` onto the stack.|
+|`swap DST,SRC`|Swap the values at `SRC` and `DST`.|
+|`scan SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask on the stack.|
+|`usesymmetries SYM\|[SYM...]`|Push the current symmetries onto the stack, and use the given ones.|
+|`restoresymmetries`|Pop the symmetries off the stack and use them.|
+|`push SRC`|Push `SRC` onto the stack.|
 |`pop DST`|Pop a value off the stack into `DST`.|
-|`call LABEL`|Call a labelled routine and push the current instruction pointer.|
+|`call LABEL`|Push the instruction pointer and jump to the labelled instruction.|
 |`ret`|Pop and return to the last instruction pointer on the stack.| 
-|`checksum DST,SRC`|Checksum the atom at `SRC`. Store the checksum result into `DST`: 1 if checksum differs; 0 otherwise.|
-|`add DST,LHS,RHS`|Store the result of `LHS + RHS` (arithmetic) into `DST`.|
-|`sub DST,LHS,RHS`|Store the result of `LHS - RHS` (arithmetic) into `DST`.|
-|`neg DST,SRC`|Store the result of `-SRC` (arithmetic) into `DST`.|
-|`mod DST,LHS,RHS`|Store the result of `LHS % RHS` (arithmetic) into `DST`.|
-|`mul DST,LHS,RHS`|Store the result of `LHS * RHS` (arithmetic) into `DST`.|
-|`div DST,LHS,RHS`|Store the result of `LHS / RHS` (arithmetic) rounded down into `DST`.|
-|`less DST,LHS,RHS`|Store the result of comparing `LHS < RHS` (arithmetic) into `DST`.|
-|`lessequal DST,LHS,RHS`|Store the result of `LHS <= RHS` (arithmetic) into `DST`.|
-|`or DST,LHS,RHS`|Store the result of `LHS \|\| RHS` (logical) into `DST`.|
-|`and DST,LHS,RHS`|Store the result of `LHS && RHS` (logical) into `DST`.|
-|`xor DST,LHS,RHS`|Store the result of `LHS ^ RHS` (logical) into `DST`.|
-|`equal DST,LHS,RHS`|Store the result of `LHS == RHS` (logical) into `DST`.|
-|`bitcount DST,SRC`|Store the number of set bits from `SRC` (logical) into `DST`.|
-|`bitscanforward DST,SRC`|Store the masked LSB index from `SRC` (logical) into `DST`.|
-|`bitscanreverse DST,SRC`|Store the masked MSB index from `SRC` (logical) into `DST`.|
-|`lshift DST,LHS,RHS`|Store the result of `LHS << RHS` (logical) into `DST`.|
-|`rshift DST,LHS,RHS`|Store the result of `LHS >> RHS` (logical) into `DST`.|
+|`checksum SRC`|Checksum the atom at `SRC`. Push the checksum result on the stack: 1 if checksum differs; 0 otherwise.|
+|`add LHS,RHS`|Push `LHS + RHS` (arithmetic) on the stack|
+|`sub LHS,RHS`|Push `LHS - RHS` (arithmetic) onto the stack.|
+|`neg SRC`|Push `-SRC` (arithmetic) onto the stack.|
+|`mod LHS,RHS`|Push `LHS % RHS` (arithmetic) onto the stack.|
+|`mul LHS,RHS`|Push `LHS * RHS` (arithmetic) onto the stack.|
+|`div LHS,RHS`|Push `LHS / RHS` (arithmetic) rounded down onto the stack.|
+|`less LHS,RHS`|Push comparing `LHS < RHS` (arithmetic) onto the stack.|
+|`lessequal LHS,RHS`|Push `LHS <= RHS` (arithmetic) onto the stack.|
+|`or LHS,RHS`|Push `LHS \|\| RHS` (logical) onto the stack.|
+|`and LHS,RHS`|Push `LHS && RHS` (logical) onto the stack.|
+|`xor LHS,RHS`|Push `LHS ^ RHS` (logical) onto the stack.|
+|`equal LHS,RHS`|Push `LHS == RHS` (logical) onto the stack.|
+|`bitcount SRC`|Push the number of set bits from `SRC` (logical) onto the stack.|
+|`bitscanforward SRC`|Push LSB index from `SRC` (logical) onto the stack.|
+|`bitscanreverse SRC`|Push MSB index from `SRC` (logical) onto the stack.|
+|`lshift LHS,RHS`|Push `LHS << RHS` (logical) onto the stack.|
+|`rshift LHS,RHS`|Push `LHS >> RHS` (logical) onto the stack.|
 |`jump LABEL`|Jump to `LABEL` unconditionally.|
 |`jumprelativeoffset LABEL,SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC` (may be signed).|
 |`jumpzero LABEL,SRC`|Jump to `LABEL` iff `SRC == 0`.|

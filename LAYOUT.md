@@ -2,34 +2,23 @@
 
 This appendix document defines the bit layout for the virtual machine.
 
-## Instructions
+## OpCodes
 
-64-bit instructions.
+16-bit opcodes describe the kind of instruction.
 
-||Reserved|Opcode|`DST`|`SRC`/`LHS`|`RHS`|
-|---|---|---|---|---|---|
-|size|8|8|16|16|16|
+## Arguments
 
+Instruction argments get pushed onto the stack and use up to 96-bits.
 
 ## Registers
 
-96-bits. May be represented as any of: `u64`, `u32`, or three `u32`s, or if available `u128`.
+96-bits.
 
 ## Atoms
 
 ||Atom Type|ECC Checksum|User State|
 |---|---|---|---|
 |size|16|9|71|
-
-## Arguments
-
-Instruction argments use a 16-bit layout.
-
-||Value Type|Inline?|Field (Optional)|
-|---|---|---|---|
-|size|1|15||
-
-The inline bit is used when the value is a constant less than 2^15.
 
 ### Constants
 

@@ -18,7 +18,7 @@ impl fmt::Display for SiteNumber {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FieldSelector {
     pub offset: u8,
     pub length: u8,

@@ -1,7 +1,7 @@
 #[macro_use]
 use lalrpop_util::lalrpop_mod;
 
-use crate::ast::{Arg, Args, File, MetaArg, Node};
+use crate::ast::{Arg, Args, Field, File, MetaArg, Node};
 use crate::base;
 use crate::base::arith::{I96, U96};
 use crate::base::op::{MetaOp, Op};
@@ -48,45 +48,16 @@ impl fmt::Display for Error {
     }
 }
 
-enum InlineOrPool {
-    Inline(Const),
-    Pool(u16),
-}
-
-impl InlineOrPool {
-    const CLR_SIGN: u128 = (1 << 96) - 1;
-    const MAX_INLINE: u128 = (1 << 15) - 1;
-
-    fn try_inline(x: Const) -> Result<Self, ()> {
-        match x {
-            Const::Unsigned(v) => {
-                if v.0 < Self::MAX_INLINE {
-                    Ok(InlineOrPool::Inline(x))
-                } else {
-                    Err(())
-                }
-            }
-            Const::Signed(v) => {
-                if (v.0 as u128) & Self::CLR_SIGN < Self::MAX_INLINE {
-                    Ok(InlineOrPool::Inline(x))
-                } else {
-                    Err(())
-                }
-            }
-        }
-    }
-}
-
-const MAGIC_NUMBER: u32 = 0x41070302;
+const MAGIC_NUMBER: u32 = 0x02030741;
 
 pub struct Compiler<'input> {
     src: &'input str,
     const_pool: Vec<MetaArg>,
     metadata: Vec<u64>,
     code: Vec<u64>,
-    const_map: HashMap<String, InlineOrPool>,
-    field_map: HashMap<String, u16>,
-    label_map: HashMap<String, u16>,
+    const_map: HashMap<String, Const>,
+    field_map: HashMap<String, base::FieldSelector>,
+    label_map: HashMap<String, usize>,
 }
 
 pub fn compile_to_bytes<'input>(src: &'input str) -> Result<Vec<u8>, Error> {
@@ -136,23 +107,15 @@ impl<'input> Compiler<'input> {
                 _ => return Err(Error::InternalUnexpectedArgType),
             },
             MetaOp::Field => match arg {
-                MetaArg::Field(i, _) => {
-                    self.field_map
-                        .insert(i.to_owned(), self.const_pool.len() as u16);
+                MetaArg::Field(i, f) => {
+                    self.field_map.insert(i.to_owned(), *f);
                     self.const_pool.push(arg.clone());
                 }
                 _ => return Err(Error::InternalUnexpectedArgType),
             },
             MetaOp::Parameter => match arg {
                 MetaArg::Parameter(i, x) => {
-                    let v = InlineOrPool::try_inline(*x)
-                        .or_else::<(), _>(|_| {
-                            let n = self.const_pool.len() as u16;
-                            self.const_pool.push(arg.clone());
-                            Ok(InlineOrPool::Pool(n))
-                        })
-                        .unwrap();
-                    self.const_map.insert(i.to_owned(), v);
+                    self.const_map.insert(i.to_owned(), *x);
                 }
                 _ => return Err(Error::InternalUnexpectedArgType),
             },
@@ -188,6 +151,42 @@ impl<'input> Compiler<'input> {
         Ok(())
     }
 
+    fn count_instruction_field(f: &Field) -> usize {
+        match f {
+            Field::Ref(_) => 2,
+            Field::Selector(x) => {
+                if *x == base::FieldSelector::ALL {
+                    2
+                } else {
+                    1
+                }
+            }
+        }
+    }
+
+    fn count_instruction_arg(a: &Arg) -> usize {
+        match a {
+            Arg::SiteNumber(_, f) => 1 + Self::count_instruction_field(f),
+            Arg::Register(_, f) => 1 + Self::count_instruction_field(f),
+            Arg::ConstRef(_, f) => Self::count_instruction_field(f),
+            Arg::Type(_) => 1,
+            _ => 0,
+        }
+    }
+
+    fn count_instruction_args(args: &Args) -> usize {
+        match args  {
+            Args::Null => 0,
+            Args::Unary(a) => Self::count_instruction_arg(a),
+            Args::Binary(a, b) => Self::count_instruction_arg(a) + Self::count_instruction_arg(b),
+            Args::Ternary(a, b, c) => {
+                Self::count_instruction_arg(a)
+                    + Self::count_instruction_arg(b)
+                    + Self::count_instruction_arg(c)
+            }
+        }
+    }
+
     fn process_labels(&mut self, ns: &Vec<Node>) -> Result<(), Error> {
         let mut ln = 0;
         for n in ns {
@@ -195,7 +194,7 @@ impl<'input> Compiler<'input> {
                 Node::Label(x) => {
                     self.label_map.insert(x.to_owned(), ln + 1);
                 }
-                Node::Instruction(_, _) => ln += 1,
+                Node::Instruction(_, a) => ln += Self::count_instruction_args(a),
                 _ => return Err(Error::InternalUnexpectedNodeType),
             };
         }
@@ -215,7 +214,9 @@ impl<'input> Compiler<'input> {
             | Op::Push
             | Op::Pop
             | Op::Call
-            | Op::Jump => match args {
+            | Op::Jump
+            | Op::LookupSite
+            | Op::LookupRegister => match args {
                 Args::Unary(_) => Ok(()),
                 _ => return Err(Error::InternalUnexpectedArgsCount),
             },
@@ -295,29 +296,6 @@ impl<'input> Compiler<'input> {
         Ok(())
     }
 
-    fn write_pool_parameter<W: WriteBytesExt>(w: &mut W, i: String, x: Const) -> Result<(), Error> {
-        w.write_u8(MetaArg::Parameter as u8)?;
-        let data = i.as_bytes();
-        w.write_u16::<LittleEndian>(data.len() as u16)?;
-        w.write_all(data)?;
-        Self::write_u96(w, x)?;
-        Ok(())
-    }
-
-    fn write_pool_field<W: WriteBytesExt>(
-        w: &mut W,
-        i: String,
-        f: base::FieldSelector,
-    ) -> Result<(), Error> {
-        w.write_u8(MetaArg::Field as u8)?;
-        let data = i.as_bytes();
-        w.write_u16::<LittleEndian>(data.len() as u16)?;
-        w.write_all(data)?;
-        w.write_u8(f.offset);
-        w.write_u8(f.length);
-        Ok(())
-    }
-
     fn write_pool_string<W: WriteBytesExt>(w: &mut W, x: String) -> Result<(), Error> {
         w.write_u8(MetaArg::String as u8)?;
         let data = x.as_bytes();
@@ -328,8 +306,6 @@ impl<'input> Compiler<'input> {
 
     fn write_pool_entry<W: WriteBytesExt>(w: &mut W, a: MetaArg) -> Result<(), Error> {
         match a {
-            MetaArg::Parameter(i, x) => Self::write_pool_parameter(w, i, x),
-            MetaArg::Field(i, f) => Self::write_pool_field(w, i, f),
             MetaArg::String(x) => Self::write_pool_string(w, x),
             _ => Err(Error::InternalError),
         }
@@ -365,7 +341,7 @@ impl<'input> Compiler<'input> {
             Self::write_pool_entry(w, a.clone())?
         }
 
-        w.write_u8(self.metadata.len() as u8);
+        w.write_u8(self.metadata.len() as u8)?;
         for i in &self.metadata {
             w.write_u64::<LittleEndian>(*i)?;
         }
