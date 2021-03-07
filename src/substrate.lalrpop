@@ -9,7 +9,7 @@ use std::vec::Vec;
 
 grammar;
 
-Ident: String = <s:r"[_a-z][_a-zA-Z0-9]*"> => s.to_owned();
+Ident: String = <s:r"[_a-z][_a-zA-Z0-9]*"> => s[1..].to_owned();
 
 String: String = r#""[^"]*""# => unquote(<>).unwrap();
 
@@ -29,7 +29,7 @@ ConstExpr: Const = {
 }
 
 Symmetry: Symmetries = {
-    <s:r"NONE|R000L|R090L|R180L|R270L|R000R|R090R|R180R|R270R|ALL"> => Symmetries::from_str(s).unwrap(),
+    <s:r"NONE|000L|090L|R180L|R270L|R000R|R090R|R180R|R270R|ALL"> => Symmetries::from_str(s).unwrap(),
 }
 
 Symmetries: Symmetries = {
@@ -66,7 +66,7 @@ pub Instruction: Node = {
     "getregister" => Node::Instruction(Instruction::GetRegister),
     "getfield" <i:Ident> => Node::Instruction(Instruction::GetField(i)),
     "setfield" <i:Ident> => Node::Instruction(Instruction::SetField(i)),
-    "gettype" <i:Ident> => Node::Instruction(Instruction::GetType(i)),
+    "gettype" <i:String> => Node::Instruction(Instruction::GetType(i)),
     "scan" => Node::Instruction(Instruction::Scan),
     "pushsymmetries" <s:Symmetries> => Node::Instruction(Instruction::PushSymmetries(s)),
     "popsymmetries" => Node::Instruction(Instruction::PopSymmetries),

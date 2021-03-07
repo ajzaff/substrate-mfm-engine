@@ -11,7 +11,7 @@
   push 1
   getsite
   getfield type
-  gettype Empty
+  gettype "Empty"
   equal
   jumpzero end
   push 0

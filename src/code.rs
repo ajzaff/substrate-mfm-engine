@@ -6,34 +6,45 @@ use crate::base;
 use crate::base::Const;
 use byteorder::BigEndian;
 use byteorder::WriteBytesExt;
+use lalrpop_util;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 
 lalrpop_mod!(pub substrate); // syntesized by LALRPOP
 
-#[derive(Copy, Clone, Debug)]
-pub enum Error {
+#[derive(Clone, Debug)]
+pub enum Error<'input> {
     IOError,
-    ParseError, // FIXME: include lalrpop ParseError
+    ParseError(lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>),
     InternalError,
     InternalUnexpectedNodeType,
     InternalUnexpectedArgsCount,
     InternalUnexpectedArgType,
 }
 
-impl From<io::Error> for Error {
+impl From<io::Error> for Error<'_> {
     fn from(x: io::Error) -> Self {
         Error::IOError
     }
 }
 
-impl fmt::Display for Error {
+impl<'input> From<lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>>
+    for Error<'input>
+{
+    fn from(
+        x: lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>,
+    ) -> Self {
+        Error::ParseError(x)
+    }
+}
+
+impl fmt::Display for Error<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            Self::InternalError => "internal error",
             Self::IOError => "IO error",
-            Self::ParseError => "parse error",
+            Self::ParseError(x) => return (*x).fmt(f),
+            Self::InternalError => "internal error",
             Self::InternalUnexpectedNodeType => "internal: unexpected node type",
             Self::InternalUnexpectedArgsCount => "internal: unexpected args count",
             Self::InternalUnexpectedArgType => "internal: unexpected arg type",
@@ -52,15 +63,13 @@ const MAGIC_NUMBER: u32 = 0x02030741;
 
 pub struct Compiler<'input> {
     src: &'input str,
-    const_pool: Vec<PoolEntry>,
-    metadata: Vec<u64>,
     code: Vec<u64>,
     const_map: HashMap<String, Const>,
     field_map: HashMap<String, base::FieldSelector>,
     label_map: HashMap<String, usize>,
 }
 
-pub fn compile_to_bytes<'input>(src: &'input str) -> Result<Vec<u8>, Error> {
+pub fn compile_to_bytes<'input>(src: &'input str) -> Result<Vec<u8>, Error<'input>> {
     let mut v = Vec::new();
     Compiler::new(src).compile_to_writer(&mut v).map(|_| v)
 }
@@ -72,8 +81,6 @@ impl<'input> Compiler<'input> {
     pub fn new(src: &'input str) -> Self {
         Self {
             src: src,
-            const_pool: Vec::new(),
-            metadata: Vec::new(),
             code: Vec::new(),
             const_map: HashMap::new(),
             field_map: HashMap::new(),
@@ -81,20 +88,7 @@ impl<'input> Compiler<'input> {
         }
     }
 
-    /// See instruction layout in LAYOUT.md
-    fn metadata_instruction(op: Metadata) -> u64 {
-        todo!()
-    }
-
-    fn process_metadata(&mut self, n: &Node) -> Result<(), Error> {
-        match n {
-            Node::Metadata(_) => (),
-            _ => return Err(Error::InternalUnexpectedNodeType),
-        };
-        todo!()
-    }
-
-    fn process_labels(&mut self, ns: &Vec<Node>) -> Result<(), Error> {
+    fn process_labels(&mut self, ns: &Vec<Node>) -> Result<(), Error<'input>> {
         let mut ln = 0;
         for n in ns {
             match n {
@@ -108,12 +102,51 @@ impl<'input> Compiler<'input> {
         Ok(())
     }
 
-    fn process_instruction(&mut self, n: &Node) -> Result<(), Error> {
-        match n {
-            Node::Instruction(i) => (),
+    fn process_instruction(&mut self, n: &Node) -> Result<(), Error<'input>> {
+        let i = match n {
+            Node::Instruction(i) => i,
             _ => return Err(Error::InternalUnexpectedNodeType),
         };
-        todo!()
+        match i {
+            Instruction::Nop => todo!(),
+            Instruction::Exit => todo!(),
+            Instruction::SetSite => todo!(),
+            Instruction::SetRegister => todo!(),
+            Instruction::GetSite => todo!(),
+            Instruction::GetRegister => todo!(),
+            Instruction::GetField(_) => todo!(),
+            Instruction::SetField(_) => todo!(),
+            Instruction::GetType(_) => todo!(),
+            Instruction::Scan => todo!(),
+            Instruction::PushSymmetries(_) => todo!(),
+            Instruction::PopSymmetries => todo!(),
+            Instruction::Push(_) => todo!(),
+            Instruction::Pop => todo!(),
+            Instruction::Call(_) => todo!(),
+            Instruction::Ret => todo!(),
+            Instruction::Checksum => todo!(),
+            Instruction::Add => todo!(),
+            Instruction::Sub => todo!(),
+            Instruction::Neg => todo!(),
+            Instruction::Mod => todo!(),
+            Instruction::Mul => todo!(),
+            Instruction::Div => todo!(),
+            Instruction::Less => todo!(),
+            Instruction::LessEqual => todo!(),
+            Instruction::Or => todo!(),
+            Instruction::And => todo!(),
+            Instruction::Xor => todo!(),
+            Instruction::Equal => todo!(),
+            Instruction::BitCount => todo!(),
+            Instruction::BitScanForward => todo!(),
+            Instruction::BitScanReverse => todo!(),
+            Instruction::LShift => todo!(),
+            Instruction::RShift => todo!(),
+            Instruction::Jump(_) => todo!(),
+            Instruction::JumpRelativeOffset(_) => todo!(),
+            Instruction::JumpZero(_) => todo!(),
+            Instruction::JumpNonZero(_) => todo!(),
+        }
     }
 
     fn write_u96<W: WriteBytesExt>(w: &mut W, x: Const) -> Result<(), io::Error> {
@@ -126,7 +159,7 @@ impl<'input> Compiler<'input> {
         Ok(())
     }
 
-    fn write_pool_string<W: WriteBytesExt>(w: &mut W, x: String) -> Result<(), Error> {
+    fn write_pool_string<W: WriteBytesExt>(w: &mut W, x: String) -> Result<(), Error<'input>> {
         w.write_u8(PoolEntry::String as u8)?;
         let data = x.as_bytes();
         w.write_u16::<BigEndian>(data.len() as u16)?;
@@ -134,27 +167,16 @@ impl<'input> Compiler<'input> {
         Ok(())
     }
 
-    fn write_pool_entry<W: WriteBytesExt>(w: &mut W, e: PoolEntry) -> Result<(), Error> {
-        match e {
-            PoolEntry::String(x) => Self::write_pool_string(w, x),
-            _ => Err(Error::InternalError),
-        }
+    fn write_metadata<'a: 'input, W: WriteBytesExt>(
+        w: &mut W,
+        e: &Node,
+    ) -> Result<(), Error<'input>> {
+        todo!()
     }
 
-    pub fn compile_to_writer<W: WriteBytesExt>(&mut self, w: &mut W) -> Result<(), Error> {
-        let p = substrate::FileParser::new()
-            .parse(self.src)
-            .map_err(|_| Error::ParseError); // FIXME: map useful error details
-        if p.is_err() {
-            return Err(p.unwrap_err());
-        }
-        let ast = p.unwrap();
+    pub fn compile_to_writer<W: WriteBytesExt>(&mut self, w: &mut W) -> Result<(), Error<'input>> {
+        let ast = substrate::FileParser::new().parse(self.src)?;
 
-        for e in ast.header {
-            if let Err(v) = self.process_metadata(&e) {
-                return Err(v);
-            }
-        }
         self.process_labels(&ast.body)?;
         for e in &ast.body {
             if let Err(v) = self.process_instruction(e) {
@@ -166,14 +188,9 @@ impl<'input> Compiler<'input> {
         w.write_u16::<BigEndian>(Self::MINOR_VERSION)?;
         w.write_u16::<BigEndian>(Self::MAJOR_VERSION)?;
 
-        w.write_u16::<BigEndian>(self.const_pool.len() as u16)?;
-        for a in &self.const_pool {
-            Self::write_pool_entry(w, a.clone())?
-        }
-
-        w.write_u8(self.metadata.len() as u8)?;
-        for i in &self.metadata {
-            w.write_u64::<BigEndian>(*i)?;
+        w.write_u8(ast.header.len() as u8)?;
+        for e in &ast.header {
+            Self::write_metadata(w, e)?;
         }
 
         w.write_u16::<BigEndian>(self.code.len() as u16)?;

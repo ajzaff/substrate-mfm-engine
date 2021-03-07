@@ -39,23 +39,11 @@ A compile tag is used to identify a batch of files compiled together. In order t
 
 ## Metadata Size
 
-Size of the constant pool described in the following section.
+Size of the metadata map described in the following section.
 
 ## Metadata
 
-The metadata map holds structured data for the program which are mostly UTF-8 Strings.
-
-### String Entry
-
-Strings have `entry_type` 0.
-
-```
-md_entry {
-  u1       entry_type;
-  u2       len;
-  u1       [data; len];
-}
-```
+The metadata map holds structured data for the program which mostly read like key-value pairs.
 
 ## Code Index Size
 
