@@ -10,8 +10,10 @@ File {
   u8          compile_tag;
   u1          metadata_size;
   md_entry    [metadata; metadata_size];
+  u2          code_index_size;
+  ci_entry    [code_index; code_index_size];
   u2          code_lines;
-  var         [code; code_lines];
+  code_entry  [code; code_lines];
 }
 ```
 
@@ -55,25 +57,32 @@ md_entry {
 }
 ```
 
+## Code Index Size
+
+Size of the code index described in the next section.
+
+## Code Index
+
+Used to record the number and types of arguments in the code table.
+
+```
+ci_entry {
+  u1     num_args;
+  u1     [arg_types; num_args];
+}
+```
+
 ## Code Lines
 
 The total number of code lines. This defines the legal range of instruction pointers as `[0, code_lines)`. Labels and comments do not count as code lines.
 
 ## Code
 
-Code consists of varint-encoded opcodes and arguments in reverse polish notation.
-
-Example encoding:
+Code is a sequence of opcodes and arguments in reverse polish notation.
 
 ```
-[u1; overhead] [u16; instruction] [u1; overhead] [u96; arg] ...
-```
-
-The overhead byte enum:
-
-```
-enum overhead {
-  instruction = 0;
-  arg = 1;
+oneof code_entry {
+  ??   [args; ??];
+  u1   instruction;
 }
 ```

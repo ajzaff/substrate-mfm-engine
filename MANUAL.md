@@ -79,58 +79,7 @@ Symmetries affect which sites are referred to.
 |`R270R`|rotation|270 degrees, clockwise flipped.|
 |`ALL`|convenience|All rotations.|
 
-### Special Operands
-
-A few special operands are provided. They are as follows:
-
-|Operand||
-|-----|-----|
-|`$`|Field operand. Used to access named fields.|
-|`#`|Window operand. Used to access the event window.|
-|`%`|Type operand. Used to get the atom's type from its common name.|
-|`_`|Skip operator. Used to skip arguments in instructions, instead using what is atop the stack.|
-
-#### Field Operand (`$`)
-
-Sections of data can be marked as fields using the `.Field` meta-instruction.
-
-`$foo` may be used to get the value stored in the named field `foo`.
-
-This expression may be appended to the end of any data to access fields in that data.
-
-* While reading: data fields are shifted such that the LSB is zero.
-* While writing: values are likewise corrected, and truncated to fit within `length`-bits.
-
-Anonymous fields may be referenced using the syntax: `$(offset; length)`.
-
-```
-.field foo 1 0 // field named foo; 1-bit length; LSB at position 0.
-
-  $foo        // $foo in Self atom; same as #0$field_name.
-  $foo$signed // $foo as a signed value.
-  R0$foo      // $foo in R0.
-  #1$foo      // $foo in atom data at site #1.
-  R1$(10; 1)  // anonymous field in the 11th bit of R1.
-
-
-.field active_count 4 1
-.field is_active 1 0
-
-  add $active_count $is_active
-```
-
-Some fields are built-in. These are also reserved names.
-
-|Builtin Fields||
-|-----|-----|
-|`type`|Type number part of the atom.|
-|`checksum`|Checksum part of the atom. Read only.|
-|`header`|Header of the atom (`type` + `checksum`). Read only.|
-|`data`|Data part of the atom.|
-
-#### Window Operand (`#`)
-
-The event window is indexed by site number.
+The event window is indexed by site number:
 
 ```
             38
@@ -146,46 +95,13 @@ The event window is indexed by site number.
 
 Symmetries affect what a site number refers to. Namely one of the valid rotation is sampled at random.
 
-```
-  #0       // my atom; full 96-bit data.
-  #1       // atom at site #1.
-  #foo     // atom at site $foo.
-```
+### Builtin Fields
 
-Invalid window locations should appear as empty or otherwise void.
-
-#### Type Operand (`%`)
-
-Common element type names can be dereferenced with `%` to get their type number.
-
-Type names cannot begin with a number.
-
-This is read only.
-
-```
-  %Empty       // by convention == 0.
-  %DReg        // e.g. 1.
-  %Res         // e.g. 2.
-  %Self        // type of the current atom.
-  %"Long Name" // Long name
-```
-
-#### Skip Operator (`_`)
-
-The skip operator can be used for syntactic sugar.
-
-```
-  add _,R0
-```
-
-Is the same as:
-
-```
-  pop R1
-  add R1,R0
-```
-
-But without the extra pop. It may be useful in some situations.
+|||
+|-----|-----|
+|`type`|Type number part of the atom.|
+|`header`|Header of the atom (`type` + `checksum`). Read only.|
+|`data`|Data part of the atom.|
 
 ### Labels
 
@@ -216,17 +132,17 @@ Meta-instructions are generally specified once at the start of a program.
 
 |Metadata||
 |--------|--------|
-|`.name NAME`|The name of the element.|
-|`.symbol SYMBOL`|A symbol for the element.|
-|`.desc DESC`|A short description of the element; Repeatable.|
-|`.author AUTHOR`|An author annotation. One author per line; Repeatable.|
-|`.license LICENSE`|An SPDX license name.|
-|`.radius RADIUS`|A maximum radius for the element; Values `[0-4]` are valid.|
-|`.bgcolor COLOR`|A background color for frontends to use.|
-|`.fgcolor COLOR`|A foreground color for frontends to use.|
-|`.symmetries SYMMETRY|[SYMMETRIES...]`|Default symmetries to use.|
-|`.field NAME,POSITION,BIT-LENGTH`|A named accessor to element data; Repeatable.|
-|`.parameter NAME,DEFAULT-VALUE`|A named constant parameter; Repeatable.|
+|`.name [NAME]`|The name of the element.|
+|`.symbol [SYMBOL]`|A symbol for the element.|
+|`.desc [DESC]`|A short description of the element; Repeatable.|
+|`.author [AUTHOR]`|An author annotation. One author per line; Repeatable.|
+|`.license [LICENSE]`|An SPDX license name.|
+|`.radius [RADIUS]`|A maximum radius for the element; Values `[0-4]` are valid.|
+|`.bgcolor [COLOR]`|A background color for frontends to use.|
+|`.fgcolor [COLOR]`|A foreground color for frontends to use.|
+|`.symmetries [SYM[|...]]`|Default symmetries to use.|
+|`.field [NAME],[POSITION],[BIT-LENGTH]`|A named accessor to element data; Repeatable.|
+|`.parameter [NAME],[DEFAULT-VALUE]`|A named constant parameter; Repeatable.|
 
 Metadata are read only and not programmatically accessible.
 
@@ -240,40 +156,45 @@ Instructions fall roughly into one of three informal categories:
 * **Logical**: Arithmetic using basic types and a stack.
 * **Control**: Program flow control.
 
-Instructions are 64-bits. The layout is defined in [LAYOUT.md](LAYOUT.md).
+Numbered arguments presented in reverse-polish come from the stack. Named arguments are in place.
 
 |Instruction||
 |--------|---------|
 |`nop`|Execute an nothing operation.|
 |`exit`|Exit the program immediately.|
-|`copy DST,SRC`|Store the value of `SRC` into `DST`. Copy the atom at `SRC` to `DST`.|
-|`swap DST,SRC`|Swap the values at `SRC` and `DST`.|
-|`scan SRC`|Scan the event window for atoms of the given `%Type` specified by `SRC`. Store the resulting mask on the stack.|
-|`usesymmetries SYM\|[SYM...]`|Push the current symmetries onto the stack, and use the given ones.|
-|`restoresymmetries`|Pop the symmetries off the stack and use them.|
-|`push SRC`|Push `SRC` onto the stack.|
-|`pop DST`|Pop a value off the stack into `DST`.|
-|`call LABEL`|Push the instruction pointer and jump to the labelled instruction.|
-|`ret`|Pop and return to the last instruction pointer on the stack.| 
-|`checksum SRC`|Checksum the atom at `SRC`. Push the checksum result on the stack: 1 if checksum differs; 0 otherwise.|
-|`add LHS,RHS`|Push `LHS + RHS` (arithmetic) on the stack|
-|`sub LHS,RHS`|Push `LHS - RHS` (arithmetic) onto the stack.|
-|`neg SRC`|Push `-SRC` (arithmetic) onto the stack.|
-|`mod LHS,RHS`|Push `LHS % RHS` (arithmetic) onto the stack.|
-|`mul LHS,RHS`|Push `LHS * RHS` (arithmetic) onto the stack.|
-|`div LHS,RHS`|Push `LHS / RHS` (arithmetic) rounded down onto the stack.|
-|`less LHS,RHS`|Push comparing `LHS < RHS` (arithmetic) onto the stack.|
-|`lessequal LHS,RHS`|Push `LHS <= RHS` (arithmetic) onto the stack.|
-|`or LHS,RHS`|Push `LHS \|\| RHS` (logical) onto the stack.|
-|`and LHS,RHS`|Push `LHS && RHS` (logical) onto the stack.|
-|`xor LHS,RHS`|Push `LHS ^ RHS` (logical) onto the stack.|
-|`equal LHS,RHS`|Push `LHS == RHS` (logical) onto the stack.|
-|`bitcount SRC`|Push the number of set bits from `SRC` (logical) onto the stack.|
-|`bitscanforward SRC`|Push LSB index from `SRC` (logical) onto the stack.|
-|`bitscanreverse SRC`|Push MSB index from `SRC` (logical) onto the stack.|
-|`lshift LHS,RHS`|Push `LHS << RHS` (logical) onto the stack.|
-|`rshift LHS,RHS`|Push `LHS >> RHS` (logical) onto the stack.|
-|`jump LABEL`|Jump to `LABEL` unconditionally.|
-|`jumprelativeoffset LABEL,SRC`|Jump unconditionally a number of instructions forward or backward specified by `SRC` (may be signed).|
-|`jumpzero LABEL,SRC`|Jump to `LABEL` iff `SRC == 0`.|
-|`jumpnonzero LABEL,SRC`|Jump to `LABEL` iff `SRC <> 0`.|
+|`[1] [0] setsite`|Set the numbered site `[0]` to the value `[1]`.|
+|`[1] [0] setregister`|Set the numbered register `[0]` to the value `[1]`.|
+|`[0] getsite`|Get the numbered site `[0]` and push the value onto the stack.|
+|`[0] getregister`|Get the numbered register `[0]` and push the value onto the stack.|
+|`[0] getfield [FIELD]`|Gets the named field of `[0]` (i.e. `[0].[FIELD]`).|
+|`[1] [0] setfield [FIELD]`|Sets the named field of `[0]` to `[1]` (i.e. `[0].[FIELD] = [1]`).|
+|`gettype [TYPE]`|Gets the named type `[TYPE]` and pushes the value onto the stack.|
+|`[0] scan`|Scan the event window for atoms of type `[0]`. Store the resulting presence bitmask on the stack.|
+|`pushsymmetries [SYM[|...]]`|Push the current symmetries onto the stack and use the new symmetries `[SYM[|...]]`.|
+|`[0] popsymmetries`|Restores the old symmetries off the stack.|
+|`push [X]`|Push the value `[X]` onto the stack.|
+|`pop`|Pop a value off the stack and discard it.|
+|`call [LABEL]`|Call the labelled routine `[LABEL]`. The current instruction pointer is pushed onto the call stack.|
+|`ret`|The previous instruction pointer is restored from the call stack.|
+|`[0] checksum`|Checksum the header value of `[0]` which should be a full atom. Push the checksum result onto the stack: 1 if checksum differs; 0 otherwise.|
+|`[1] [0] add`|Push `[0] + [1]` on the stack|
+|`[1] [0] sub`|Push `[0] - [1]` onto the stack.|
+|`[0] neg`|Push `-[0]` onto the stack.|
+|`[1] [0] mod`|Push `[0] % [1]` onto the stack.|
+|`[1] [0] mul`|Push `[0] * [1]` onto the stack.|
+|`[1] [0] div`|Push `[0] / [1]` rounded down onto the stack.|
+|`[1] [0] less`|Push comparing `[0] < [1]` (arithmetic) onto the stack.|
+|`[1] [0] lessequal`|Push `[0] <= [1]` (arithmetic) onto the stack.|
+|`[1] [0] or`|Push `[0] \|\| [1]` (logical) onto the stack.|
+|`[1] [0] and`|Push `[0] && [1]` (logical) onto the stack.|
+|`[1] [0] xor`|Push `[0] ^ [1]` (logical) onto the stack.|
+|`[1] [0] equal`|Push `[0] == [1]` (logical) onto the stack.|
+|`[0] bitcount`|Push the set bit count from `[0]` onto the stack.|
+|`[0] bitscanforward`|Push LSB index from `[0]` (logical) onto the stack.|
+|`[0] bitscanreverse`|Push MSB index from `[0]` (logical) onto the stack.|
+|`[1] [0] lshift`|Push `[0] << [1]` (logical) onto the stack.|
+|`[1] [0] rshift`|Push `[0] >> [1]` (logical) onto the stack.|
+|`jump [LABEL]`|Jump to `[LABEL]` unconditionally.|
+|`[0] jumprelativeoffset [LABEL]`|Jump unconditionally a number of instructions forward or backward specified by `[0]` (signed).|
+|`[0] jumpzero [LABEL]`|Jump to `[LABEL]` iff `[0] == 0`.|
+|`[0] jumpnonzero [LABEL]`|Jump to `[LABEL]` iff `[0] != 0`.|
