@@ -8,4 +8,8 @@
 .symmetries ALL
 .radius 1
 
-    copy #1,#0
+    push 0
+    getsite
+    push 1
+    getsite
+    setsite
