@@ -1,9 +1,8 @@
 use crate::base;
 use crate::base::arith::{U96, I96};
-use crate::base::op::{Op, MetaOp};
 use crate::base::{Const, Symmetries, SiteNumber};
 use crate::ast;
-use crate::ast::{Node, MetaArg, Arg, Args};
+use crate::ast::{Node, Instruction, Metadata};
 use std::str::FromStr;
 use enquote::unquote;
 use std::vec::Vec;
@@ -38,93 +37,70 @@ Symmetries: Symmetries = {
     <s:Symmetry> "|" <ss:Symmetries> => s | ss,
 }
 
-pub MetaInstruction: Node = {
-    ".name" <i:String> => Node::MetaInstruction(MetaOp::Name, MetaArg::String(i)),
-    ".symbol" <i:String> => Node::MetaInstruction(MetaOp::Symbol, MetaArg::String(i)),
-    ".desc" <i:String> => Node::MetaInstruction(MetaOp::Desc, MetaArg::String(i)),
-    ".author" <i:String> => Node::MetaInstruction(MetaOp::Author, MetaArg::String(i)),
-    ".license" <i:String> => Node::MetaInstruction(MetaOp::License, MetaArg::String(i)),
-    <p:r".radius [0-4]"> => Node::MetaInstruction(MetaOp::Radius, MetaArg::Radius(u8::from_str(&p[8..]).unwrap())),
-    ".bgcolor" <i:String> => Node::MetaInstruction(MetaOp::BgColor, MetaArg::String(i)),
-    ".fgcolor" <i:String> => Node::MetaInstruction(MetaOp::FgColor, MetaArg::String(i)),
-    ".symmetries" <ss:Symmetries> => Node::MetaInstruction(MetaOp::Symmetries, MetaArg::Symmetries(ss)),
-    ".field" <i:Ident> "," <o:r"[1-9][0-9]+|[0-9]"> "," <n:r"[1-9][0-9]+|[0-9]"> => Node::MetaInstruction(
-        MetaOp::Field,
-        MetaArg::Field(i, base::FieldSelector{
+pub Metadata: Node = {
+    ".name" <i:String> => Node::Metadata(Metadata::Name(i)),
+    ".symbol" <i:String> => Node::Metadata(Metadata::Symbol(i)),
+    ".desc" <i:String> => Node::Metadata(Metadata::Desc(i)),
+    ".author" <i:String> => Node::Metadata(Metadata::Author(i)),
+    ".license" <i:String> => Node::Metadata(Metadata::License(i)),
+    <p:r".radius [0-4]"> => Node::Metadata(Metadata::Radius(u8::from_str(&p[8..]).unwrap())),
+    ".bgcolor" <i:String> => Node::Metadata(Metadata::BgColor(i)),
+    ".fgcolor" <i:String> => Node::Metadata(Metadata::FgColor(i)),
+    ".symmetries" <s:Symmetries> => Node::Metadata(Metadata::Symmetries(s)),
+    ".field" <i:Ident> "," <o:r"[1-9][0-9]+|[0-9]"> "," <n:r"[1-9][0-9]+|[0-9]"> => Node::Metadata(
+        Metadata::Field(i, base::FieldSelector{
             offset: u8::from_str(o).unwrap(),
             length: u8::from_str(n).unwrap(),
         })),
-    ".parameter" <i:Ident> "," <c:ConstExpr> => Node::MetaInstruction(MetaOp::Parameter, MetaArg::Parameter(i, c)),
+    ".parameter" <i:Ident> "," <c:ConstExpr> => Node::Metadata(Metadata::Parameter(i, c)),
 }
 
 Label: Node = <i:Ident> ":" => Node::Label(i);
 
-SiteNum: SiteNumber = <s:r"#40|#[1-3][0-9]|#[0-9]"> => SiteNumber(u8::from_str(&s[1..]).unwrap());
-
-FieldRef: ast::Field = {
-    "$" <i:Ident> => ast::Field::Ref(i),
-}
-
-TypeRef: Arg = {
-    "%" <i:Ident> => Arg::Type(i),
-    "%" <i:String> => Arg::Type(i),
-}
-
-RegisterRef: ast::Register = {
-    "R?" => ast::Register::Random,
-    <s:r"R[1-9][0-9]+|R[0-9]"> => ast::Register::R(usize::from_str(&s[1..]).unwrap()), 
-}
-
-Arg: Arg = {
-    <i:SiteNum> <s:FieldRef> => Arg::SiteNumber(i, s),
-    <i:SiteNum> => Arg::SiteNumber(i, ast::Field::Selector(base::FieldSelector::ALL)),
-    <s:FieldRef> => Arg::SiteNumber(base::SiteNumber(0), s),
-    <i:Ident> <s:FieldRef> => Arg::ConstRef(i, s),
-    <i:Ident> => Arg::ConstRef(i, ast::Field::Selector(base::FieldSelector::ALL)),
-    <t:TypeRef> => t,
-    <r:RegisterRef> <s:FieldRef> => Arg::Register(r, s),
-    <r:RegisterRef> => Arg::Register(r, ast::Field::Selector(base::FieldSelector::ALL)),
-}
-
 pub Instruction: Node = {
-    "nop" => Node::Instruction(Op::Nop, Args::Null),
-    "exit" => Node::Instruction(Op::Exit, Args::Null),
-    "copy" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Copy, Args::Binary(a, b)),
-    "swap" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Swap, Args::Binary(a, b)),
-    "scan" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Scan, Args::Binary(a, b)),
-    "usesymmetries" <s:Symmetries> => Node::Instruction(Op::UseSymmetries, Args::Unary(Arg::Symmetries(s))),
-    "restoresymmetries" => Node::Instruction(Op::RestoreSymmetries, Args::Null),
-    "push" <a:Arg> => Node::Instruction(Op::Push, Args::Unary(a)),
-    "pop" <a:Arg> => Node::Instruction(Op::Push, Args::Unary(a)),
-    "call" <i:Ident> => Node::Instruction(Op::Call, Args::Unary(Arg::Label(i))),
-    "ret" => Node::Instruction(Op::Ret, Args::Null),
-    "checksum" <a:Arg> => Node::Instruction(Op::Checksum, Args::Unary(a)),
-    "add" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Add, Args::Binary(a, b)),
-    "sub" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Sub, Args::Binary(a, b)),
-    "neg" <a:Arg> => Node::Instruction(Op::Neg, Args::Unary(a)),
-    "mod" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Mod, Args::Binary(a, b)),
-    "mul" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Mul, Args::Binary(a, b)),
-    "div" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Div, Args::Binary(a, b)),
-    "less" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Less, Args::Binary(a, b)),
-    "lessequal" <a:Arg> "," <b:Arg> => Node::Instruction(Op::LessEqual, Args::Binary(a, b)),
-    "or" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Or, Args::Binary(a, b)),
-    "and" <a:Arg> "," <b:Arg> => Node::Instruction(Op::And, Args::Binary(a, b)),
-    "xor" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Xor, Args::Binary(a, b)),
-    "equal" <a:Arg> "," <b:Arg> => Node::Instruction(Op::Equal, Args::Binary(a, b)),
-    "bitcount" <a:Arg> => Node::Instruction(Op::BitCount, Args::Unary(a)),
-    "bitscanforward" <a:Arg> => Node::Instruction(Op::BitScanForward, Args::Unary(a)),
-    "bitscanreserve" <a:Arg> => Node::Instruction(Op::BitScanReverse, Args::Unary(a)),
-    "lshift" <a:Arg> "," <b:Arg> => Node::Instruction(Op::LShift, Args::Binary(a, b)),
-    "rshift" <a:Arg> "," <b:Arg> => Node::Instruction(Op::RShift, Args::Binary(a, b)),
-    "jump" <i:Ident> => Node::Instruction(Op::Jump, Args::Unary(Arg::Label(i))),
-    "jumprelativeoffset" <i:Ident> "," <b:Arg> => Node::Instruction(Op::Jump, Args::Binary(Arg::Label(i), b)),
-    "jumpzero" <i:Ident> "," <b:Arg> => Node::Instruction(Op::JumpZero, Args::Binary(Arg::Label(i), b)),
-    "jumpnonzero" <i:Ident> "," <b:Arg> => Node::Instruction(Op::JumpNonZero, Args::Binary(Arg::Label(i), b)),
+    "nop" => Node::Instruction(Instruction::Nop),
+    "exit" => Node::Instruction(Instruction::Exit),
+    "setsite" => Node::Instruction(Instruction::SetSite),
+    "setregister" => Node::Instruction(Instruction::SetRegister),
+    "getsite" => Node::Instruction(Instruction::GetSite),
+    "getregister" => Node::Instruction(Instruction::GetRegister),
+    "getfield" <i:Ident> => Node::Instruction(Instruction::GetField(i)),
+    "setfield" <i:Ident> => Node::Instruction(Instruction::SetField(i)),
+    "gettype" <i:Ident> => Node::Instruction(Instruction::GetType(i)),
+    "scan" => Node::Instruction(Instruction::Scan),
+    "pushsymmetries" <s:Symmetries> => Node::Instruction(Instruction::PushSymmetries(s)),
+    "popsymmetries" => Node::Instruction(Instruction::PopSymmetries),
+    "push" <c:ConstExpr> => Node::Instruction(Instruction::Push(c)),
+    "pop" => Node::Instruction(Instruction::Pop),
+    "call" <i:Ident> => Node::Instruction(Instruction::Call(i)),
+    "ret" => Node::Instruction(Instruction::Ret),
+    "checksum" => Node::Instruction(Instruction::Checksum),
+    "add" => Node::Instruction(Instruction::Add),
+    "sub" => Node::Instruction(Instruction::Sub),
+    "neg" => Node::Instruction(Instruction::Neg),
+    "mod" => Node::Instruction(Instruction::Mod),
+    "mul" => Node::Instruction(Instruction::Mul),
+    "div" => Node::Instruction(Instruction::Div),
+    "less" => Node::Instruction(Instruction::Less),
+    "lessequal" => Node::Instruction(Instruction::LessEqual),
+    "or" => Node::Instruction(Instruction::Or),
+    "and" => Node::Instruction(Instruction::And),
+    "xor" => Node::Instruction(Instruction::Xor),
+    "equal" => Node::Instruction(Instruction::Equal),
+    "bitcount" => Node::Instruction(Instruction::BitCount),
+    "bitscanforward" => Node::Instruction(Instruction::BitScanForward),
+    "bitscanreverse" => Node::Instruction(Instruction::BitScanReverse),
+    "lshift" => Node::Instruction(Instruction::LShift),
+    "rshift" => Node::Instruction(Instruction::RShift),
+    "jump" <i:Ident> => Node::Instruction(Instruction::Jump(i)),
+    "jumprelativeoffset" <i:Ident> => Node::Instruction(Instruction::JumpRelativeOffset(i)),
+    "jumpzero" <i:Ident> => Node::Instruction(Instruction::JumpZero(i)),
+    "jumpnonzero" <i:Ident> => Node::Instruction(Instruction::JumpNonZero(i)),
 }
 
 FileHeader: Vec<Node> = {
-    <v:MetaInstruction> => vec![v],
-    <mut vs:FileHeader> <v:MetaInstruction> => {
+    <v:Metadata> => vec![v],
+    <mut vs:FileHeader> <v:Metadata> => {
         vs.push(v);
         vs
     },

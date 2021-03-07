@@ -1,5 +1,4 @@
 pub mod arith;
-pub mod op;
 
 use arith::{I96, U96};
 use bitflags::bitflags;

@@ -1,52 +1,67 @@
 use crate::base;
-use std::vec;
 
 #[derive(Clone, Debug)]
 pub enum Node {
     Label(String),
-    MetaInstruction(base::op::MetaOp, MetaArg),
-    Instruction(base::op::Op, Args),
+    Metadata(Metadata),
+    Instruction(Instruction),
 }
 
 #[derive(Clone, Debug)]
-pub enum Args {
-    Null,
-    Unary(Arg),
-    Binary(Arg, Arg),
-    Ternary(Arg, Arg, Arg),
-}
-
-#[repr(u8)]
-#[derive(Clone, Debug)]
-pub enum Arg {
-    Label(String),
-    SiteNumber(base::SiteNumber, Field),
-    Symmetries(base::Symmetries),
-    Register(Register, Field),
-    ConstRef(String, Field),
-    Type(String),
-}
-
-#[repr(u8)]
-#[derive(Clone, Debug)]
-pub enum MetaArg {
+pub enum Metadata {
+    Name(String),
+    Symbol(String),
+    Desc(String),
+    Author(String),
+    License(String),
     Radius(u8),
-    String(String),
+    BgColor(String),
+    FgColor(String),
     Symmetries(base::Symmetries),
-    Parameter(String, base::Const),
     Field(String, base::FieldSelector),
+    Parameter(String, base::Const),
 }
 
 #[derive(Clone, Debug)]
-pub enum Field {
-    Ref(String),
-    Selector(base::FieldSelector),
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum Register {
-    Random,
-    R(usize),
+pub enum Instruction {
+    Nop,
+    Exit,
+    SetSite,
+    SetRegister,
+    GetSite,
+    GetRegister,
+    GetField(String),
+    SetField(String),
+    GetType(String),
+    Scan,
+    PushSymmetries(base::Symmetries),
+    PopSymmetries,
+    Push(base::Const),
+    Pop,
+    Call(String),
+    Ret,
+    Checksum,
+    Add,
+    Sub,
+    Neg,
+    Mod,
+    Mul,
+    Div,
+    Less,
+    LessEqual,
+    Or,
+    And,
+    Xor,
+    Equal,
+    BitCount,
+    BitScanForward,
+    BitScanReverse,
+    LShift,
+    RShift,
+    Jump(String),
+    JumpRelativeOffset(String),
+    JumpZero(String),
+    JumpNonZero(String),
 }
 
 #[derive(Debug)]
