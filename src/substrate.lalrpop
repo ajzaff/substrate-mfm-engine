@@ -9,7 +9,7 @@ use std::vec::Vec;
 
 grammar;
 
-Ident: String = <s:r"[_a-z][_a-zA-Z0-9]*"> => s[1..].to_owned();
+Ident: String = <s:r"[_a-z][_a-zA-Z0-9]*"> => s.to_owned();
 
 String: String = r#""[^"]*""# => unquote(<>).unwrap();
 
@@ -98,17 +98,21 @@ pub Instruction: Node = {
     "jumpnonzero" <i:Ident> => Node::Instruction(Instruction::JumpNonZero(i)),
 }
 
+MetadataLine: Node = <v:Metadata> => v;
+
 FileHeader: Vec<Node> = {
-    <v:Metadata> => vec![v],
-    <mut vs:FileHeader> <v:Metadata> => {
+    <v:MetadataLine> => vec![v],
+    <mut vs:FileHeader> <v:MetadataLine> => {
         vs.push(v);
         vs
     },
 }
 
+Comment: () = r"/\*.*\*/";
+
 FileLine: Node = {
-    Label,
-    Instruction,
+    <l:Label> Comment? => l,
+    <i:Instruction> Comment? => i,
 }
 
 FileBody: Vec<Node> = {

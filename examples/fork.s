@@ -8,8 +8,7 @@
 .symmetries ALL
 .radius 1
 
-    push 0
-    getsite
     push 1
-    getsite
-    setsite
+    push 0
+    getsite   /* #0 */
+    setsite   /* #1 = #0 */
