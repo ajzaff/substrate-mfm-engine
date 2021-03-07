@@ -40,7 +40,7 @@ A constant typed value can be used wherever a constant expression is expected.
 Constants are limited to 96-bits in size.
 
 ||`unsigned`|`signed`|
-|---|---|---|---|
+|---|---|---|
 |Min|`0`|`-2^95`|
 |Max|`2^96-1`|`2^95-1`|
 
