@@ -140,7 +140,7 @@ Meta-instructions are generally specified once at the start of a program.
 |`.radius [RADIUS]`|A maximum radius for the element; Values `[0-4]` are valid.|
 |`.bgcolor [COLOR]`|A background color for frontends to use.|
 |`.fgcolor [COLOR]`|A foreground color for frontends to use.|
-|`.symmetries [SYM[|...]]`|Default symmetries to use.|
+|`.symmetries [SYM[\|...]]`|Default symmetries to use.|
 |`.field [NAME],[POSITION],[BIT-LENGTH]`|A named accessor to element data; Repeatable.|
 |`.parameter [NAME],[DEFAULT-VALUE]`|A named constant parameter; Repeatable.|
 
@@ -170,7 +170,7 @@ Numbered arguments presented in reverse-polish come from the stack. Named argume
 |`[1] [0] setfield [FIELD]`|Sets the named field of `[0]` to `[1]` (i.e. `[0].[FIELD] = [1]`).|
 |`gettype [TYPE]`|Gets the named type `[TYPE]` and pushes the value onto the stack.|
 |`[0] scan`|Scan the event window for atoms of type `[0]`. Store the resulting presence bitmask on the stack.|
-|`pushsymmetries [SYM[|...]]`|Push the current symmetries onto the stack and use the new symmetries `[SYM[|...]]`.|
+|`pushsymmetries [SYM[\|...]]`|Push the current symmetries onto the stack and use the new symmetries `[SYM[\|...]]`.|
 |`[0] popsymmetries`|Restores the old symmetries off the stack.|
 |`push [X]`|Push the value `[X]` onto the stack.|
 |`pop`|Pop a value off the stack and discard it.|
