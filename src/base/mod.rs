@@ -28,6 +28,22 @@ impl FieldSelector {
         offset: 0,
         length: 96,
     };
+    pub const TYPE: Self = Self {
+        offset: 80,
+        length: 16,
+    };
+    pub const HEADER: Self = Self {
+        offset: 71,
+        length: 25,
+    };
+    pub const DATA: Self = Self {
+        offset: 0,
+        length: 71,
+    };
+
+    pub fn as_u16(&self) -> u16 {
+        (self.offset as u16) | (self.length as u16) << 8
+    }
 }
 
 impl fmt::Display for FieldSelector {

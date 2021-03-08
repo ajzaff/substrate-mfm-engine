@@ -47,9 +47,13 @@ The metadata map holds structured data for the program which mostly read like ke
 
 ## Code Index Size
 
+Not implemented.
+
 Size of the code index described in the next section.
 
 ## Code Index
+
+Not implemented.
 
 Used to record the number and types of arguments in the code table.
 
