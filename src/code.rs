@@ -1,4 +1,3 @@
-#[macro_use]
 use lalrpop_util::lalrpop_mod;
 
 use crate::ast::{Instruction, Metadata, Node};
@@ -24,7 +23,7 @@ pub enum Error<'input> {
 }
 
 impl From<io::Error> for Error<'_> {
-    fn from(x: io::Error) -> Self {
+    fn from(_: io::Error) -> Self {
         Error::IOError
     }
 }
@@ -132,7 +131,11 @@ impl<'input> Compiler<'input> {
         Ok(())
     }
 
-    fn write_metadata<W: WriteBytesExt>(w: &mut W, n: &Node) -> Result<(), Error<'input>> {
+    fn write_metadata<W: WriteBytesExt>(
+        &mut self,
+        w: &mut W,
+        n: &Node,
+    ) -> Result<(), Error<'input>> {
         let m = match n {
             Node::Metadata(m) => m,
             _ => return Err(Error::InternalUnexpectedNodeType),
@@ -149,10 +152,12 @@ impl<'input> Compiler<'input> {
             Metadata::FgColor(x) => Self::write_string(w, x),
             Metadata::Symmetries(x) => w.write_u8(x.bits() as u8).map_err(|x| x.into()),
             Metadata::Field(i, f) => {
+                self.field_map.insert(i.to_owned(), *f);
                 Self::write_string(w, i)?;
                 w.write_u16::<BigEndian>(f.as_u16()).map_err(|x| x.into())
             }
             Metadata::Parameter(i, c) => {
+                self.const_map.insert(i.to_owned(), *c);
                 Self::write_string(w, i)?;
                 Self::write_u96(w, c).map_err(|x| x.into())
             }
@@ -226,7 +231,7 @@ impl<'input> Compiler<'input> {
 
         w.write_u8(ast.header.len() as u8)?;
         for e in &ast.header {
-            Self::write_metadata(w, e)?;
+            self.write_metadata(w, e)?;
         }
 
         // TODO: Implement code table for recording typed arguments.

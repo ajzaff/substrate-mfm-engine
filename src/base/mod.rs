@@ -2,10 +2,7 @@ pub mod arith;
 
 use arith::{I96, U96};
 use bitflags::bitflags;
-use byteorder::LittleEndian;
-use byteorder::WriteBytesExt;
 use std::fmt;
-use std::io;
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
@@ -24,10 +21,6 @@ pub struct FieldSelector {
 }
 
 impl FieldSelector {
-    pub const ALL: Self = Self {
-        offset: 0,
-        length: 96,
-    };
     pub const TYPE: Self = Self {
         offset: 80,
         length: 16,
@@ -83,12 +76,6 @@ impl FromStr for Symmetries {
             "ALL" => Ok(Symmetries::ALL),
             _ => Err(()),
         }
-    }
-}
-
-impl Symmetries {
-    fn to_u8(&self) -> u8 {
-        self.bits as u8
     }
 }
 

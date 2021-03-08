@@ -1,8 +1,5 @@
-use num::traits::FromPrimitive;
-use std::num::ParseIntError;
-use std::str::FromStr;
-
 use std::fmt;
+use std::num::ParseIntError;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 use std::ops::{BitAnd, BitOr, BitXor};
