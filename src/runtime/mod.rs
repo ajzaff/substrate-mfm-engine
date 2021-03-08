@@ -1,6 +1,6 @@
 pub mod mfm;
 
-use crate::ast;
+use crate::base;
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use std::collections::HashMap;
@@ -42,15 +42,59 @@ pub fn load_from_bytes(bytes: &mut &[u8]) -> Result<Runtime, Error> {
 
 const MAGIC_NUMBER: u32 = 0x02030741;
 
+#[repr(u8)]
+#[derive(Clone, Debug)]
+enum Instruction {
+  Nop,
+  Exit,
+  SwapSites,
+  SetSite,
+  SetField(base::FieldSelector),
+  SetSiteField(base::FieldSelector),
+  GetSite,
+  GetField(base::FieldSelector),
+  GetSiteField(base::FieldSelector),
+  GetType(u16),
+  Scan,
+  PushSymmetries(base::Symmetries),
+  PopSymmetries,
+  Push(base::Const),
+  Pop,
+  Call(u16),
+  Ret,
+  Checksum,
+  Add,
+  Sub,
+  Neg,
+  Mod,
+  Mul,
+  Div,
+  Less,
+  LessEqual,
+  Or,
+  And,
+  Xor,
+  Equal,
+  BitCount,
+  BitScanForward,
+  BitScanReverse,
+  LShift,
+  RShift,
+  Jump(u16),
+  JumpRelativeOffset(u16),
+  JumpZero(u16),
+  JumpNonZero(u16),
+}
+
 struct Element {
-  metadata: Vec<ast::Metadata>,
-  code: Vec<ast::Node>,
+  metadata: mfm::Metadata,
+  code: Vec<Instruction>,
 }
 
 impl Element {
   fn new() -> Self {
     Self {
-      metadata: vec![],
+      metadata: mfm::Metadata::new(),
       code: vec![],
     }
   }
@@ -58,7 +102,10 @@ impl Element {
 
 pub struct Runtime {
   tag: Option<u64>,
-  elements: HashMap<String, Element>,
+  element_map: HashMap<String, Element>,
+  ip: Option<u16>,
+  op_stack: Vec<base::Const>,
+  call_stack: Vec<u16>,
 }
 
 impl Runtime {
@@ -68,16 +115,17 @@ impl Runtime {
   pub fn new() -> Self {
     Self {
       tag: None,
-      elements: Self::new_elements_map(),
+      element_map: Self::new_element_map(),
+      ip: None,
+      op_stack: Vec::new(),
+      call_stack: Vec::new(),
     }
   }
 
-  fn new_elements_map() -> HashMap<String, Element> {
+  fn new_element_map() -> HashMap<String, Element> {
     let mut m = HashMap::new();
     let mut empty = Element::new();
-    empty
-      .metadata
-      .push(ast::Metadata::Name("Empty".to_string()));
+    empty.metadata.name = "Empty".to_string();
     m.insert("Empty".to_string(), empty);
     m
   }
