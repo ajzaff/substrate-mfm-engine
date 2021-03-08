@@ -170,13 +170,20 @@ Numbered arguments presented in reverse-polish come from the stack. Named argume
 |`[0] getfield [FIELD]`|Gets the field of the value `[0]` (i.e. `[0].[FIELD]`).|
 |`[0] getsitefield [FIELD]`|Gets the field of the numbered site `[0].[FIELD]`.|
 |`gettype [TYPE]`|Gets the named type `[TYPE]` and pushes the value onto the stack.|
+|`getparameter [PARAM]`|Gets the named const `[PARAM]` and pushes the value onto the stack.|
 |`[0] scan`|Scan the event window for atoms of type `[0]`. Store the resulting presence bitmask on the stack.|
-|`pushsymmetries [SYM[\|...]]`|Push the current symmetries onto the stack and use the new symmetries `[SYM[\|...]]`.|
-|`[0] popsymmetries`|Restores the old symmetries off the stack.|
+|`savesymmetries`|Push the current symmetries onto the stack.|
+|`usesymmetries [SYM[\|...]]`|Use the new symmetries `[SYM[\|...]]`|
+|`[0] restoresymmetries`|Restores the old symmetries off the stack.|
+|`push[0-40]`|Push the constant value onto the stack.|
 |`push [X]`|Push the value `[X]` onto the stack.|
 |`pop`|Pop a value off the stack and discard it.|
+|`[0] dup`|Duplicate the value `[0]` atop the stack.|
+|`[1] [0] swap`|Swap the order of the top two stack elements `[1]` and `[0]`.|
+|`[1] [0] over`|Duplicate the second value `[0]` atop the stack.|
+|`[2] [1] [0] rot`|Rotate the top three stack values such that their resulting order becomes `[0]` `[2]` `[1]`.|
 |`call [LABEL]`|Call the labelled routine `[LABEL]`. The current instruction pointer is pushed onto the call stack.|
-|`ret`|The previous instruction pointer is restored from the call stack.|
+|`[0] ret`|The previous instruction pointer `[0]` is restored from the call stack.|
 |`[0] checksum`|Checksum the header value of `[0]` which should be a full atom. Push the checksum result onto the stack: 1 if checksum differs; 0 otherwise.|
 |`[1] [0] add`|Push `[0] + [1]` on the stack|
 |`[1] [0] sub`|Push `[0] - [1]` onto the stack.|

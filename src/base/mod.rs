@@ -1,6 +1,6 @@
 pub mod arith;
 
-use arith::{I96, U96};
+use arith::U96;
 use bitflags::bitflags;
 use std::fmt;
 use std::str::FromStr;
@@ -14,7 +14,7 @@ impl fmt::Display for SiteNumber {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct FieldSelector {
     pub offset: u8,
     pub length: u8,
@@ -39,9 +39,18 @@ impl FieldSelector {
     }
 }
 
-impl fmt::Display for FieldSelector {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{{}:{}}}", self.offset, self.length)
+impl From<u16> for FieldSelector {
+    fn from(x: u16) -> Self {
+        Self {
+            offset: x as u8,
+            length: (x >> 8) as u8,
+        }
+    }
+}
+
+impl FieldSelector {
+    pub fn select(&self, x: Const) -> Const {
+        todo!()
     }
 }
 
@@ -78,9 +87,14 @@ impl FromStr for Symmetries {
         }
     }
 }
+impl From<u8> for Symmetries {
+    fn from(x: u8) -> Self {
+        Self { bits: x }
+    }
+}
 
 #[derive(Copy, Clone, Debug)]
 pub enum Const {
     Unsigned(U96),
-    Signed(I96),
+    Signed(U96),
 }

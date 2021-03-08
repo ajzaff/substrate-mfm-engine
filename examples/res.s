@@ -10,11 +10,11 @@
 .radius 1
 
   gettype "Empty"    /* %Empty */
-  push 1
+  push1
   getsitefield type  /* #1$type */
   equal              /* #1$type == %Empty */
   jumpzero end
-  push 0
-  push 1
+  push0
+  push1
   swapsites          /* swap(#0, #1) */
 end:

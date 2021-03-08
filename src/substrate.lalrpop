@@ -1,7 +1,6 @@
-use crate::ast;
-use crate::ast::{Instruction, Metadata, Node};
+use crate::ast::{Arg, File, Instruction, Metadata, Node};
 use crate::base;
-use crate::base::arith::{I96, U96};
+use crate::base::arith::U96;
 use crate::base::{Const, Symmetries};
 use enquote::unquote;
 use std::str::FromStr;
@@ -19,7 +18,7 @@ DecNum: Const = <s:r"[1-9][0-9]+|[0-9]"> => Const::Unsigned(U96::from_str_radix(
 
 HexNum: Const = <s:r"0x[0-9a-fA-F]+"> => Const::Unsigned(U96::from_str_radix(&s[2..], 16).unwrap());
 
-SignedNum: Const = <s:r"[+-][1-9][0-9]+|[+-][0-9]"> => Const::Signed(I96::from_str_radix(s, 10).unwrap());
+SignedNum: Const = <s:r"[+-][1-9][0-9]+|[+-][0-9]"> => Const::Signed(U96::from_str_radix(s, 10).unwrap());
 
 ConstExpr: Const = {
     BinNum,
@@ -62,18 +61,24 @@ pub Instruction: Node = {
     "exit" => Node::Instruction(Instruction::Exit),
     "swapsites" => Node::Instruction(Instruction::SwapSites),
     "setsite" => Node::Instruction(Instruction::SetSite),
-    "setfield" <i:Ident> => Node::Instruction(Instruction::SetField(i)),
-    "setsitefield" <i:Ident> => Node::Instruction(Instruction::SetSiteField(i)),
+    "setfield" <i:Ident> => Node::Instruction(Instruction::SetField(Arg::Ast(i))),
+    "setsitefield" <i:Ident> => Node::Instruction(Instruction::SetSiteField(Arg::Ast(i))),
     "getsite" => Node::Instruction(Instruction::GetSite),
-    "getfield" <i:Ident> => Node::Instruction(Instruction::GetField(i)),
-    "getsitefield" <i:Ident> => Node::Instruction(Instruction::GetSiteField(i)),
-    "gettype" <i:String> => Node::Instruction(Instruction::GetType(i)),
+    "getfield" <i:Ident> => Node::Instruction(Instruction::GetField(Arg::Ast(i))),
+    "getsitefield" <i:Ident> => Node::Instruction(Instruction::GetSiteField(Arg::Ast(i))),
+    "gettype" <i:String> => Node::Instruction(Instruction::GetType(Arg::Ast(i))),
+    "getparameter" <i:Ident> => Node::Instruction(Instruction::GetParameter(Arg::Ast(i))),
     "scan" => Node::Instruction(Instruction::Scan),
-    "pushsymmetries" <s:Symmetries> => Node::Instruction(Instruction::PushSymmetries(s)),
-    "popsymmetries" => Node::Instruction(Instruction::PopSymmetries),
+    "savesymmetries" => Node::Instruction(Instruction::SaveSymmetries),
+    "usesymmetries" <s:Symmetries> => Node::Instruction(Instruction::UseSymmetries(s)),
+    "restoresymmetries" => Node::Instruction(Instruction::RestoreSymmetries),
     "push" <c:ConstExpr> => Node::Instruction(Instruction::Push(c)),
     "pop" => Node::Instruction(Instruction::Pop),
-    "call" <i:Ident> => Node::Instruction(Instruction::Call(i)),
+    "dup" => Node::Instruction(Instruction::Dup),
+    "over" => Node::Instruction(Instruction::Over),
+    "swap" => Node::Instruction(Instruction::Swap),
+    "rot" => Node::Instruction(Instruction::Rot),
+    "call" <i:Ident> => Node::Instruction(Instruction::Call(Arg::Ast(i))),
     "ret" => Node::Instruction(Instruction::Ret),
     "checksum" => Node::Instruction(Instruction::Checksum),
     "add" => Node::Instruction(Instruction::Add),
@@ -93,10 +98,10 @@ pub Instruction: Node = {
     "bitscanreverse" => Node::Instruction(Instruction::BitScanReverse),
     "lshift" => Node::Instruction(Instruction::LShift),
     "rshift" => Node::Instruction(Instruction::RShift),
-    "jump" <i:Ident> => Node::Instruction(Instruction::Jump(i)),
-    "jumprelativeoffset" <i:Ident> => Node::Instruction(Instruction::JumpRelativeOffset(i)),
-    "jumpzero" <i:Ident> => Node::Instruction(Instruction::JumpZero(i)),
-    "jumpnonzero" <i:Ident> => Node::Instruction(Instruction::JumpNonZero(i)),
+    "jump" <i:Ident> => Node::Instruction(Instruction::Jump(Arg::Ast(i))),
+    "jumprelativeoffset" <i:Ident> => Node::Instruction(Instruction::JumpRelativeOffset(Arg::Ast(i))),
+    "jumpzero" <i:Ident> => Node::Instruction(Instruction::JumpZero(Arg::Ast(i))),
+    "jumpnonzero" <i:Ident> => Node::Instruction(Instruction::JumpNonZero(Arg::Ast(i))),
 }
 
 MetadataLine: Node = <v:Metadata> => v;
@@ -124,6 +129,9 @@ FileBody: Vec<Node> = {
     },
 }
 
-pub File: ast::File = {
-    <a:FileHeader> <b:FileBody?> => ast::File{header: a, body: b.unwrap_or(vec![])},
+pub File: File = {
+    <a:FileHeader> <b:FileBody?> => File{
+        header: a,
+        body: b.unwrap_or(vec![]),
+    },
 }

@@ -12,7 +12,7 @@ use std::io;
 
 lalrpop_mod!(pub substrate); // syntesized by LALRPOP
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Error<'input> {
     IOError,
     ParseError(lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>),
@@ -115,13 +115,7 @@ impl<'input> Compiler<'input> {
     }
 
     fn write_u96<W: WriteBytesExt>(w: &mut W, x: &Const) -> Result<(), io::Error> {
-        let (raw, sign) = match x {
-            Const::Unsigned(x) => (x.0, 0),
-            Const::Signed(x) => (x.0 as u128, 1 << 31),
-        };
-        w.write_u64::<BigEndian>(raw as u64)?;
-        w.write_u32::<BigEndian>((raw >> 64) as u32 | sign)?;
-        Ok(())
+        todo!()
     }
 
     fn write_string<W: WriteBytesExt>(w: &mut W, x: &String) -> Result<(), Error<'input>> {
@@ -180,41 +174,89 @@ impl<'input> Compiler<'input> {
             Instruction::Exit => Ok(()),
             Instruction::SwapSites => Ok(()),
             Instruction::SetSite => Ok(()),
-            Instruction::SetField(x) => w.write_u16::<BigEndian>(self.field_map[x].as_u16()),
-            Instruction::SetSiteField(x) => w.write_u16::<BigEndian>(self.field_map[x].as_u16()),
+            Instruction::SetField(x) => w.write_u16::<BigEndian>(self.field_map[x.ast()].as_u16()),
+            Instruction::SetSiteField(x) => {
+                w.write_u16::<BigEndian>(self.field_map[x.ast()].as_u16())
+            }
             Instruction::GetSite => Ok(()),
-            Instruction::GetField(x) => w.write_u16::<BigEndian>(self.field_map[x].as_u16()),
-            Instruction::GetSiteField(x) => w.write_u16::<BigEndian>(self.field_map[x].as_u16()),
-            Instruction::GetType(x) => w.write_u16::<BigEndian>(self.type_map[x]),
+            Instruction::GetField(x) => w.write_u16::<BigEndian>(self.field_map[x.ast()].as_u16()),
+            Instruction::GetSiteField(x) => {
+                w.write_u16::<BigEndian>(self.field_map[x.ast()].as_u16())
+            }
+            Instruction::GetType(x) => w.write_u16::<BigEndian>(self.type_map[x.ast()]),
+            Instruction::GetParameter(x) => Self::write_u96(w, &self.const_map[x.ast()]),
             Instruction::Scan => Ok(()),
-            Instruction::PushSymmetries(x) => w.write_u8(x.bits() as u8),
-            Instruction::PopSymmetries => Ok(()),
+            Instruction::SaveSymmetries => Ok(()),
+            Instruction::UseSymmetries(x) => w.write_u8(x.bits() as u8),
+            Instruction::RestoreSymmetries => Ok(()),
+            Instruction::Push0
+            | Instruction::Push1
+            | Instruction::Push2
+            | Instruction::Push3
+            | Instruction::Push4
+            | Instruction::Push5
+            | Instruction::Push6
+            | Instruction::Push7
+            | Instruction::Push8
+            | Instruction::Push9
+            | Instruction::Push10
+            | Instruction::Push11
+            | Instruction::Push12
+            | Instruction::Push13
+            | Instruction::Push14
+            | Instruction::Push15
+            | Instruction::Push16
+            | Instruction::Push17
+            | Instruction::Push18
+            | Instruction::Push19
+            | Instruction::Push20
+            | Instruction::Push21
+            | Instruction::Push22
+            | Instruction::Push23
+            | Instruction::Push24
+            | Instruction::Push25
+            | Instruction::Push26
+            | Instruction::Push27
+            | Instruction::Push28
+            | Instruction::Push29
+            | Instruction::Push30
+            | Instruction::Push31
+            | Instruction::Push32
+            | Instruction::Push33
+            | Instruction::Push34
+            | Instruction::Push35
+            | Instruction::Push36
+            | Instruction::Push37
+            | Instruction::Push38
+            | Instruction::Push39
+            | Instruction::Push40 => Ok(()),
             Instruction::Push(x) => Self::write_u96(w, x),
-            Instruction::Pop => Ok(()),
-            Instruction::Call(x) => w.write_u16::<BigEndian>(self.label_map[x]),
-            Instruction::Ret => todo!(),
-            Instruction::Checksum => todo!(),
-            Instruction::Add => Ok(()),
-            Instruction::Sub => Ok(()),
-            Instruction::Neg => Ok(()),
-            Instruction::Mod => Ok(()),
-            Instruction::Mul => Ok(()),
-            Instruction::Div => Ok(()),
-            Instruction::Less => Ok(()),
-            Instruction::LessEqual => Ok(()),
-            Instruction::Or => Ok(()),
-            Instruction::And => Ok(()),
-            Instruction::Xor => Ok(()),
-            Instruction::Equal => Ok(()),
-            Instruction::BitCount => Ok(()),
-            Instruction::BitScanForward => Ok(()),
-            Instruction::BitScanReverse => Ok(()),
-            Instruction::LShift => Ok(()),
-            Instruction::RShift => Ok(()),
-            Instruction::Jump(x) => w.write_u16::<BigEndian>(self.label_map[x]),
-            Instruction::JumpRelativeOffset(x) => w.write_u16::<BigEndian>(self.label_map[x]),
-            Instruction::JumpZero(x) => w.write_u16::<BigEndian>(self.label_map[x]),
-            Instruction::JumpNonZero(x) => w.write_u16::<BigEndian>(self.label_map[x]),
+            Instruction::Pop | Instruction::Dup | Instruction::Over | Instruction::Swap => Ok(()),
+            Instruction::Rot => Ok(()),
+            Instruction::Call(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
+            Instruction::Ret => Ok(()),
+            Instruction::Checksum => Ok(()),
+            Instruction::Add
+            | Instruction::Sub
+            | Instruction::Neg
+            | Instruction::Mod
+            | Instruction::Mul
+            | Instruction::Div
+            | Instruction::Less
+            | Instruction::LessEqual
+            | Instruction::Or
+            | Instruction::And
+            | Instruction::Xor
+            | Instruction::Equal
+            | Instruction::BitCount
+            | Instruction::BitScanForward
+            | Instruction::BitScanReverse
+            | Instruction::LShift
+            | Instruction::RShift => Ok(()),
+            Instruction::Jump(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
+            Instruction::JumpRelativeOffset(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
+            Instruction::JumpZero(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
+            Instruction::JumpNonZero(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
         }
         .map_err(|x| x.into())
     }
