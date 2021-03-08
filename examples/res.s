@@ -4,6 +4,7 @@
 .bgcolor "#000"
 .author "Dave Ackley"
 .author "Alan Zaffetti"
+.author "Luke Wilson"
 .license "GPL-2.0-or-later"
 .symmetries ALL
 .radius 1
