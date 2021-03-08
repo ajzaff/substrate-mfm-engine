@@ -162,12 +162,13 @@ Numbered arguments presented in reverse-polish come from the stack. Named argume
 |--------|---------|
 |`nop`|Execute an nothing operation.|
 |`exit`|Exit the program immediately.|
+|`[1] [0] swapsites`|Atomic swap of numbered sites `[0]` and `[1]`.|
 |`[1] [0] setsite`|Set the numbered site `[0]` to the value `[1]`.|
-|`[1] [0] setregister`|Set the numbered register `[0]` to the value `[1]`.|
+|`[1] [0] setfield [FIELD]`|Sets the field of the value `[0].[FIELD]` to `[1]`.|
+|`[1] [0] setsitefield [FIELD]`|Set the field of the numbered site `[0].[FIELD]` to `[1]`.|
 |`[0] getsite`|Get the numbered site `[0]` and push the value onto the stack.|
-|`[0] getregister`|Get the numbered register `[0]` and push the value onto the stack.|
-|`[0] getfield [FIELD]`|Gets the named field of `[0]` (i.e. `[0].[FIELD]`).|
-|`[1] [0] setfield [FIELD]`|Sets the named field of `[0]` to `[1]` (i.e. `[0].[FIELD] = [1]`).|
+|`[0] getfield [FIELD]`|Gets the field of the value `[0]` (i.e. `[0].[FIELD]`).|
+|`[0] getsitefield [FIELD]`|Gets the field of the numbered site `[0].[FIELD]`.|
 |`gettype [TYPE]`|Gets the named type `[TYPE]` and pushes the value onto the stack.|
 |`[0] scan`|Scan the event window for atoms of type `[0]`. Store the resulting presence bitmask on the stack.|
 |`pushsymmetries [SYM[\|...]]`|Push the current symmetries onto the stack and use the new symmetries `[SYM[\|...]]`.|
