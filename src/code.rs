@@ -1,11 +1,10 @@
-use lalrpop_util::lalrpop_mod;
-
 use crate::ast::{Instruction, Metadata, Node};
 use crate::base;
 use crate::base::Const;
 use byteorder::BigEndian;
 use byteorder::WriteBytesExt;
 use lalrpop_util;
+use lalrpop_util::lalrpop_mod;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
@@ -42,7 +41,7 @@ impl fmt::Display for Error<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Self::IOError => "IO error",
-            Self::ParseError(x) => return (*x).fmt(f),
+            Self::ParseError(x) => return x.fmt(f),
             Self::InternalError => "internal error",
             Self::InternalUnexpectedNodeType => "internal: unexpected node type",
             Self::InternalUnexpectedArgsCount => "internal: unexpected args count",
@@ -52,30 +51,38 @@ impl fmt::Display for Error<'_> {
     }
 }
 
-const MAGIC_NUMBER: u32 = 0x02030741;
-
-pub struct Compiler<'input> {
-    tag: &'input str,
-    code_index: Vec<u8>,
-    const_map: HashMap<&'input str, Const>,
-    field_map: HashMap<&'input str, base::FieldSelector>,
-    label_map: HashMap<&'input str, u16>,
-    type_map: HashMap<&'input str, u16>,
+struct CodeEntry {
+    args: Vec<u8>,
 }
 
-impl<'input> Compiler<'input> {
+impl CodeEntry {
+    fn new() -> Self {
+        Self { args: Vec::new() }
+    }
+}
+
+const MAGIC_NUMBER: u32 = 0x02030741;
+
+pub struct Compiler {
+    build_tag: String,
+    type_map: HashMap<String, u16>,
+}
+
+impl Compiler {
     const MINOR_VERSION: u16 = 1;
     const MAJOR_VERSION: u16 = 0;
 
-    pub fn new(tag: &'input str) -> Self {
+    pub fn new(build_tag: &str) -> Self {
         Self {
-            tag: tag,
-            code_index: Vec::new(),
-            const_map: HashMap::new(),
-            field_map: Self::new_field_map(),
-            label_map: HashMap::new(),
+            build_tag: build_tag.to_owned(),
             type_map: Self::new_type_map(),
         }
+    }
+
+    fn new_type_map() -> HashMap<String, u16> {
+        let mut m = HashMap::new();
+        m.insert("Empty".to_owned(), 0);
+        m
     }
 
     fn new_field_map() -> HashMap<&'static str, base::FieldSelector> {
@@ -86,26 +93,38 @@ impl<'input> Compiler<'input> {
         m
     }
 
-    fn new_type_map() -> HashMap<&'static str, u16> {
-        let mut m = HashMap::new();
-        m.insert("Empty", 0);
-        m
+    fn index_metadata_node<'input>(
+        n: Node<'input>,
+        const_map: &mut HashMap<&'input str, Const>,
+        field_map: &mut HashMap<&'input str, base::FieldSelector>,
+    ) -> Result<(), Error<'input>> {
+        match n {
+            Node::Metadata(i) => match i {
+                Metadata::Parameter(i, c) => {
+                    const_map.insert(i, c);
+                }
+                Metadata::Field(i, f) => {
+                    field_map.insert(i, f);
+                }
+                _ => {}
+            },
+            _ => return Err(Error::InternalUnexpectedNodeType),
+        }
+        Ok(())
     }
 
-    /// rebuild the labels index.
-    fn build_code_index(&mut self, ns: &Vec<Node<'input>>) -> Result<(), Error<'input>> {
-        self.field_map.clear();
-        self.const_map.clear();
-        self.label_map.clear();
-        let mut ln = 0;
-        for n in ns {
-            match n {
-                Node::Label(x) => {
-                    self.label_map.insert(x, ln + 1);
-                }
-                Node::Instruction(_) => ln += 1,
-                _ => return Err(Error::InternalUnexpectedNodeType),
-            };
+    fn index_code_node<'input>(
+        ln: &mut u16,
+        n: Node<'input>,
+        code_index: &mut HashMap<u16, CodeEntry>,
+        label_map: &mut HashMap<&'input str, u16>,
+    ) -> Result<(), Error<'input>> {
+        match n {
+            Node::Label(x) => {
+                label_map.insert(x, *ln + 1);
+            }
+            Node::Instruction(i) => *ln += 1,
+            _ => return Err(Error::InternalUnexpectedNodeType),
         }
         Ok(())
     }
@@ -114,17 +133,21 @@ impl<'input> Compiler<'input> {
         todo!()
     }
 
-    fn write_string<W: WriteBytesExt>(w: &mut W, x: &'input str) -> Result<(), Error<'static>> {
+    fn write_string<'input, W: WriteBytesExt>(
+        w: &mut W,
+        x: &'input str,
+    ) -> Result<(), Error<'input>> {
         let data = x.as_bytes();
         w.write_u8(data.len() as u8)?;
         w.write_all(data)?;
         Ok(())
     }
 
-    fn write_metadata<W: WriteBytesExt>(
-        &mut self,
+    fn write_metadata<'input, W: WriteBytesExt>(
         w: &mut W,
         n: Node<'input>,
+        const_map: &HashMap<&'input str, Const>,
+        field_map: &HashMap<&'input str, base::FieldSelector>,
     ) -> Result<(), Error<'input>> {
         let m = match n {
             Node::Metadata(m) => m,
@@ -142,22 +165,30 @@ impl<'input> Compiler<'input> {
             Metadata::FgColor(x) => Self::write_string(w, x),
             Metadata::Symmetries(x) => w.write_u8(x.bits() as u8).map_err(|x| x.into()),
             Metadata::Field(i, f) => {
-                self.field_map.insert(i, f);
                 Self::write_string(w, i)?;
                 w.write_u16::<BigEndian>(f.as_u16()).map_err(|x| x.into())
             }
             Metadata::Parameter(i, c) => {
-                self.const_map.insert(i, c);
                 Self::write_string(w, i)?;
                 Self::write_u96(w, c).map_err(|x| x.into())
             }
         }
     }
 
-    fn write_instruction<W: WriteBytesExt>(
-        &mut self,
+    fn write_code_index<'input, W: WriteBytesExt>(
+        w: &mut W,
+        code_index: &HashMap<u16, CodeEntry>,
+    ) -> Result<(), Error<'input>> {
+        todo!()
+    }
+
+    fn write_instruction<'input, W: WriteBytesExt>(
         w: &mut W,
         n: Node<'input>,
+        type_map: &HashMap<String, u16>,
+        label_map: &HashMap<&'input str, u16>,
+        const_map: &HashMap<&'input str, Const>,
+        field_map: &HashMap<&'input str, base::FieldSelector>,
     ) -> Result<(), Error<'input>> {
         let i = match n {
             Node::Label(_) => return Ok(()),
@@ -170,17 +201,13 @@ impl<'input> Compiler<'input> {
             Instruction::Exit => Ok(()),
             Instruction::SwapSites => Ok(()),
             Instruction::SetSite => Ok(()),
-            Instruction::SetField(x) => w.write_u16::<BigEndian>(self.field_map[x.ast()].as_u16()),
-            Instruction::SetSiteField(x) => {
-                w.write_u16::<BigEndian>(self.field_map[x.ast()].as_u16())
-            }
+            Instruction::SetField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].as_u16()),
+            Instruction::SetSiteField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].as_u16()),
             Instruction::GetSite => Ok(()),
-            Instruction::GetField(x) => w.write_u16::<BigEndian>(self.field_map[x.ast()].as_u16()),
-            Instruction::GetSiteField(x) => {
-                w.write_u16::<BigEndian>(self.field_map[x.ast()].as_u16())
-            }
-            Instruction::GetType(x) => w.write_u16::<BigEndian>(self.type_map[x.ast()]),
-            Instruction::GetParameter(x) => Self::write_u96(w, self.const_map[x.ast()]),
+            Instruction::GetField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].as_u16()),
+            Instruction::GetSiteField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].as_u16()),
+            Instruction::GetType(x) => w.write_u16::<BigEndian>(type_map[x.ast().to_owned()]),
+            Instruction::GetParameter(x) => Self::write_u96(w, const_map[x.ast()]),
             Instruction::Scan => Ok(()),
             Instruction::SaveSymmetries => Ok(()),
             Instruction::UseSymmetries(x) => w.write_u8(x.bits() as u8),
@@ -229,7 +256,7 @@ impl<'input> Compiler<'input> {
             Instruction::Push(x) => Self::write_u96(w, x),
             Instruction::Pop | Instruction::Dup | Instruction::Over | Instruction::Swap => Ok(()),
             Instruction::Rot => Ok(()),
-            Instruction::Call(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
+            Instruction::Call(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
             Instruction::Ret => Ok(()),
             Instruction::Checksum => Ok(()),
             Instruction::Add
@@ -249,41 +276,52 @@ impl<'input> Compiler<'input> {
             | Instruction::BitScanReverse
             | Instruction::LShift
             | Instruction::RShift => Ok(()),
-            Instruction::Jump(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
-            Instruction::JumpRelativeOffset(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
-            Instruction::JumpZero(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
-            Instruction::JumpNonZero(x) => w.write_u16::<BigEndian>(self.label_map[x.ast()]),
+            Instruction::Jump(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
+            Instruction::JumpRelativeOffset(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
+            Instruction::JumpZero(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
+            Instruction::JumpNonZero(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
         }
         .map_err(|x| x.into())
     }
 
-    pub fn compile_to_writer<W: WriteBytesExt>(
-        &mut self,
+    pub fn compile_to_writer<'input, W: WriteBytesExt>(
+        &'input mut self,
         w: &mut W,
         src: &'input str,
-        type_num: Option<u16>,
     ) -> Result<(), Error<'input>> {
         let ast = substrate::FileParser::new().parse(src)?;
+        let mut code_index: HashMap<u16, CodeEntry> = HashMap::new();
+        let mut label_map: HashMap<&'input str, u16> = HashMap::new();
+        let mut const_map: HashMap<&'input str, Const> = HashMap::new();
+        let mut field_map: HashMap<&'input str, base::FieldSelector> = Self::new_field_map();
+
+        for n in ast.header.iter() {
+            Self::index_metadata_node(*n, &mut const_map, &mut field_map)?;
+        }
+
+        {
+            let mut ln = 0u16;
+            for n in ast.body.iter() {
+                Self::index_code_node(&mut ln, *n, &mut code_index, &mut label_map)?;
+            }
+        }
 
         w.write_u32::<BigEndian>(MAGIC_NUMBER)?;
         w.write_u16::<BigEndian>(Self::MINOR_VERSION)?;
         w.write_u16::<BigEndian>(Self::MAJOR_VERSION)?;
-        Self::write_string(w, self.tag)?;
-
-        self.build_code_index(&ast.body)?;
+        Self::write_string(w, self.build_tag.as_str())?;
 
         w.write_u8(ast.header.len() as u8)?;
         for e in ast.header.iter() {
-            self.write_metadata(w, *e)?;
+            Self::write_metadata(w, *e, &const_map, &field_map)?;
         }
 
-        // TODO: Implement code table for recording typed arguments.
-        // w.write_u16::<BigEndian>(self.code_index.len() as u16)?;
-        // w.write_all(self.code_index.as_slice())?;
+        w.write_u16::<BigEndian>(code_index.len() as u16)?;
+        // Self::write_code_index(w, &code_index)?;
 
         w.write_u16::<BigEndian>(ast.body.len() as u16)?;
         for e in ast.body.iter() {
-            self.write_instruction(w, *e)?;
+            Self::write_instruction(w, *e, &self.type_map, &label_map, &const_map, &field_map)?;
         }
 
         Ok(())

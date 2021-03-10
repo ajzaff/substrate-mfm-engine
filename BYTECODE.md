@@ -13,8 +13,8 @@ File {
   md_entry    [metadata; metadata_size];
   u2          code_index_size;
   ci_entry    [code_index; code_index_size];
-  u2          code_lines;
-  code_entry  [code; code_lines];
+  u2          instruction_count;
+  code_entry  [code; instruction_count];
 }
 ```
 
@@ -44,38 +44,83 @@ Size of the metadata map described in the following section.
 
 ## Metadata
 
-The metadata map holds structured data for the program which mostly read like key-value pairs.
+The metadata map holds structured data for the program which is read as key-value pairs.
+
+|Metadata Key|Byte Sequence|
+|---|---|
+|`.name`|`00`|
+|`.symbol`|`01`|
+|`.desc`|`02`|
+|`.author`|`03`|
+|`.license`|`04`|
+|`.radius`|`05`|
+|`.bgcolor`|`06`|
+|`.fgcolor`|`07`|
+|`.symmetries`|`08`|
+|`.field`|`09`|
+|`.parameter`|`0a`|
+
+The value that follows depends on the key.
 
 ## Code Index Size
 
-Not implemented.
-
-Size of the code index described in the next section.
+The size of the code index described in the next section.
 
 ## Code Index
 
-Not implemented.
+The purpose of the code index is to record the types and custom bit-widths of arguments in the following code table.
 
-Used to record the number and types of arguments in the code table.
+This index is required to parse the code, as arguments will be packed into a number of bits specified by their `type`.
 
 ```
 ci_entry {
-  u1     num_args;
-  u1     [arg_types; num_args];
+  u2    instruction_idx;
+  u1    type;
 }
 ```
 
-## Code Lines
+A multimap repeated as neccessary for instructions with multiple arguments.
 
-The total number of code lines. This defines the legal range of instruction pointers as `[0, code_lines)`. Labels and comments do not count as code lines.
+A type is a single byte containing:
+
+* A sign:
+  * `Signed` (`0x80`)
+  * `Unsigned` (`0x0`)
+* A custom bit width ranging from 1 - 96.
+
+### Example
+
+The code index contents is shown inline in the comments:
+
+```
+.field is_foo,0,1
+
+  push 0xfff /* Unsigned(24) */
+  push1      /* Unsigned(6)  */
+  push0      /* ... */
+  getsite    /* => Unsigned(96) */
+  push +1         /* Signed(2) */
+  getfield is_foo /* Unsigned(1) */
+  add             /* => Signed(3) */
+```
+
+Note that the code table need not represent the types of instructions lacking arguments as these are determined soley from their inputs (the resultant type denoted with a `=>`).
+
+## Instruction Count
+
+The total number of instructions. This defines the legal range of instruction pointers as `[0, code_lines)`. Labels and comments do not count as code lines.
 
 ## Code
 
-Code is a sequence of opcodes and arguments in reverse polish notation.
+Code is a sequence of opcodes followed by their arguments, if any.
 
 ```
 oneof code_entry {
-  ??   [args; ??];
   u1   instruction;
+  ??   [args; n];
 }
 ```
+
+The number of args `n` depends on the instruction (though most instructions have 0 or 1 argument).
+
+The size of arguments are determined in the code index.
