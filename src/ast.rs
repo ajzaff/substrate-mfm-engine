@@ -1,29 +1,29 @@
 use crate::base;
 
-#[derive(Clone, Debug)]
-pub enum Node {
-    Label(String),
-    Metadata(Metadata),
-    Instruction(Instruction),
+#[derive(Copy, Clone, Debug)]
+pub enum Node<'input> {
+    Label(&'input str),
+    Metadata(Metadata<'input>),
+    Instruction(Instruction<'input>),
 }
 
 #[repr(u8)]
-#[derive(Clone, Debug)]
-pub enum Metadata {
-    Name(String),
-    Symbol(String),
-    Desc(String),
-    Author(String),
-    License(String),
+#[derive(Copy, Clone, Debug)]
+pub enum Metadata<'input> {
+    Name(&'input str),
+    Symbol(&'input str),
+    Desc(&'input str),
+    Author(&'input str),
+    License(&'input str),
     Radius(u8),
-    BgColor(String),
-    FgColor(String),
+    BgColor(&'input str),
+    FgColor(&'input str),
     Symmetries(base::Symmetries),
-    Field(String, base::FieldSelector),
-    Parameter(String, base::Const),
+    Field(&'input str, base::FieldSelector),
+    Parameter(&'input str, base::Const),
 }
 
-impl Metadata {
+impl Metadata<'_> {
     pub const MAX: u8 = 10;
 
     pub fn as_u8(&self) -> u8 {
@@ -43,7 +43,7 @@ impl Metadata {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Arg<T, U> {
     Ast(T),
     Runtime(U),
@@ -76,19 +76,19 @@ impl<T, U> Arg<T, U> {
 }
 
 #[repr(u8)]
-#[derive(Clone, Debug)]
-pub enum Instruction {
+#[derive(Copy, Clone, Debug)]
+pub enum Instruction<'input> {
     Nop,
     Exit,
     SwapSites,
     SetSite,
-    SetField(Arg<String, base::FieldSelector>),
-    SetSiteField(Arg<String, base::FieldSelector>),
+    SetField(Arg<&'input str, base::FieldSelector>),
+    SetSiteField(Arg<&'input str, base::FieldSelector>),
     GetSite,
-    GetField(Arg<String, base::FieldSelector>),
-    GetSiteField(Arg<String, base::FieldSelector>),
-    GetType(Arg<String, u16>),
-    GetParameter(Arg<String, base::Const>),
+    GetField(Arg<&'input str, base::FieldSelector>),
+    GetSiteField(Arg<&'input str, base::FieldSelector>),
+    GetType(Arg<&'input str, u16>),
+    GetParameter(Arg<&'input str, base::Const>),
     Scan,
     SaveSymmetries,
     UseSymmetries(base::Symmetries),
@@ -140,7 +140,7 @@ pub enum Instruction {
     Over,
     Swap,
     Rot,
-    Call(Arg<String, u16>),
+    Call(Arg<&'input str, u16>),
     Ret,
     Checksum,
     Add,
@@ -160,13 +160,13 @@ pub enum Instruction {
     BitScanReverse,
     LShift,
     RShift,
-    Jump(Arg<String, u16>),
-    JumpRelativeOffset(Arg<String, u16>),
-    JumpZero(Arg<String, u16>),
-    JumpNonZero(Arg<String, u16>),
+    Jump(Arg<&'input str, u16>),
+    JumpRelativeOffset(Arg<&'input str, u16>),
+    JumpZero(Arg<&'input str, u16>),
+    JumpNonZero(Arg<&'input str, u16>),
 }
 
-impl Instruction {
+impl Instruction<'_> {
     pub const MAX: u8 = 85;
 
     pub fn as_u8(&self) -> u8 {
@@ -262,7 +262,7 @@ impl Instruction {
 }
 
 #[derive(Debug)]
-pub struct File {
-    pub header: Vec<Node>,
-    pub body: Vec<Node>,
+pub struct File<'input> {
+    pub header: Vec<Node<'input>>,
+    pub body: Vec<Node<'input>>,
 }

@@ -7,7 +7,8 @@ File {
   u4          magic;
   u2          minor_version;
   u2          major_version;
-  u8          compile_tag;
+  u1          build_tag_len;
+  u1          [build_tag; build_tag_len];
   u1          metadata_size;
   md_entry    [metadata; metadata_size];
   u2          code_index_size;

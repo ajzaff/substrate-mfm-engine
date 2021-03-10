@@ -40,7 +40,7 @@ impl fmt::Display for Error {
   }
 }
 
-pub fn load_from_bytes(bytes: &mut &[u8]) -> Result<Runtime, Error> {
+pub fn load_from_bytes<'input>(bytes: &'input mut &[u8]) -> Result<Runtime<'input>, Error> {
   let mut r = Runtime::new();
   r.load_from_reader(bytes)?;
   Ok(r)
@@ -48,12 +48,12 @@ pub fn load_from_bytes(bytes: &mut &[u8]) -> Result<Runtime, Error> {
 
 const MAGIC_NUMBER: u32 = 0x02030741;
 
-struct Element {
+struct Element<'input> {
   metadata: mfm::Metadata,
-  code: Vec<Instruction>,
+  code: Vec<Instruction<'input>>,
 }
 
-impl Element {
+impl Element<'_> {
   fn new() -> Self {
     Self {
       metadata: mfm::Metadata::new(),
@@ -62,16 +62,16 @@ impl Element {
   }
 }
 
-pub struct Runtime {
+pub struct Runtime<'input> {
   tag: Option<u64>,
-  element_map: HashMap<String, Element>,
+  element_map: HashMap<String, Element<'input>>,
   ip: Option<u16>,
   symmetries_stack: Vec<base::Symmetries>,
   call_stack: Vec<u16>,
   op_stack: Vec<base::Const>,
 }
 
-impl Runtime {
+impl<'input> Runtime<'input> {
   const MINOR_VERSION: u16 = 1;
   const MAJOR_VERSION: u16 = 0;
 
@@ -86,7 +86,7 @@ impl Runtime {
     }
   }
 
-  fn new_element_map() -> HashMap<String, Element> {
+  fn new_element_map() -> HashMap<String, Element<'input>> {
     let mut m = HashMap::new();
     let mut empty = Element::new();
     empty.metadata.name = "Empty".to_string();

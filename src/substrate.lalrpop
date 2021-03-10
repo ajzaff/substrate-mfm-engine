@@ -8,9 +8,9 @@ use std::vec::Vec;
 
 grammar;
 
-Ident: String = <s:r"[_a-z][_a-zA-Z0-9]*"> => s.to_owned();
+Ident: &'input str = <s:r"[_a-z][_a-zA-Z0-9]*"> => s;
 
-String: String = r#""[^"]*""# => unquote(<>).unwrap();
+String: &'input str = <s:r#""[^"]*""#> => &s[1..s.len()-1];
 
 BinNum: Const = <s:r"0b[01]+"> => Const::Unsigned(U96::from_str_radix(&s[2..], 2).unwrap());
 
@@ -36,7 +36,7 @@ Symmetries: Symmetries = {
     <s:Symmetry> "|" <ss:Symmetries> => s | ss,
 }
 
-pub Metadata: Node = {
+pub Metadata: Node<'input> = {
     ".name" <i:String> => Node::Metadata(Metadata::Name(i)),
     ".symbol" <i:String> => Node::Metadata(Metadata::Symbol(i)),
     ".desc" <i:String> => Node::Metadata(Metadata::Desc(i)),
@@ -54,9 +54,9 @@ pub Metadata: Node = {
     ".parameter" <i:Ident> "," <c:ConstExpr> => Node::Metadata(Metadata::Parameter(i, c)),
 }
 
-Label: Node = <i:Ident> ":" => Node::Label(i);
+Label: Node<'input> = <i:Ident> ":" => Node::Label(i);
 
-pub Instruction: Node = {
+pub Instruction: Node<'input> = {
     "nop" => Node::Instruction(Instruction::Nop),
     "exit" => Node::Instruction(Instruction::Exit),
     "swapsites" => Node::Instruction(Instruction::SwapSites),
@@ -104,9 +104,9 @@ pub Instruction: Node = {
     "jumpnonzero" <i:Ident> => Node::Instruction(Instruction::JumpNonZero(Arg::Ast(i))),
 }
 
-MetadataLine: Node = <v:Metadata> => v;
+MetadataLine: Node<'input> = <v:Metadata> => v;
 
-FileHeader: Vec<Node> = {
+FileHeader: Vec<Node<'input>> = {
     <v:MetadataLine> => vec![v],
     <mut vs:FileHeader> <v:MetadataLine> => {
         vs.push(v);
@@ -116,12 +116,12 @@ FileHeader: Vec<Node> = {
 
 Comment: () = r"/\*.*\*/";
 
-FileLine: Node = {
+FileLine: Node<'input> = {
     <l:Label> Comment? => l,
     <i:Instruction> Comment? => i,
 }
 
-FileBody: Vec<Node> = {
+FileBody: Vec<Node<'input>> = {
     <v:FileLine> => vec![v],
     <mut vs:FileBody> <v:FileLine> => {
         vs.push(v);
@@ -129,7 +129,7 @@ FileBody: Vec<Node> = {
     },
 }
 
-pub File: File = {
+pub File: File<'input> = {
     <a:FileHeader> <b:FileBody?> => File{
         header: a,
         body: b.unwrap_or(vec![]),
