@@ -1,4 +1,5 @@
-use crate::base;
+use crate::base::arith::Const;
+use crate::base::{FieldSelector, Symmetries};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Node<'input> {
@@ -18,9 +19,9 @@ pub enum Metadata<'input> {
     Radius(u8),
     BgColor(&'input str),
     FgColor(&'input str),
-    Symmetries(base::Symmetries),
-    Field(&'input str, base::FieldSelector),
-    Parameter(&'input str, base::Const),
+    Symmetries(Symmetries),
+    Field(&'input str, FieldSelector),
+    Parameter(&'input str, Const),
 }
 
 impl Metadata<'_> {
@@ -82,16 +83,16 @@ pub enum Instruction<'input> {
     Exit,
     SwapSites,
     SetSite,
-    SetField(Arg<&'input str, base::FieldSelector>),
-    SetSiteField(Arg<&'input str, base::FieldSelector>),
+    SetField(Arg<&'input str, FieldSelector>),
+    SetSiteField(Arg<&'input str, FieldSelector>),
     GetSite,
-    GetField(Arg<&'input str, base::FieldSelector>),
-    GetSiteField(Arg<&'input str, base::FieldSelector>),
+    GetField(Arg<&'input str, FieldSelector>),
+    GetSiteField(Arg<&'input str, FieldSelector>),
     GetType(Arg<&'input str, u16>),
-    GetParameter(Arg<&'input str, base::Const>),
+    GetParameter(Arg<&'input str, Const>),
     Scan,
     SaveSymmetries,
-    UseSymmetries(base::Symmetries),
+    UseSymmetries(Symmetries),
     RestoreSymmetries,
     Push0,
     Push1,
@@ -134,7 +135,7 @@ pub enum Instruction<'input> {
     Push38,
     Push39,
     Push40,
-    Push(base::Const),
+    Push(Const),
     Pop,
     Dup,
     Over,
@@ -161,7 +162,7 @@ pub enum Instruction<'input> {
     LShift,
     RShift,
     Jump(Arg<&'input str, u16>),
-    JumpRelativeOffset(Arg<&'input str, u16>),
+    JumpRelativeOffset,
     JumpZero(Arg<&'input str, u16>),
     JumpNonZero(Arg<&'input str, u16>),
 }
@@ -254,7 +255,7 @@ impl Instruction<'_> {
             Self::LShift => 80,
             Self::RShift => 81,
             Self::Jump(_) => 82,
-            Self::JumpRelativeOffset(_) => 83,
+            Self::JumpRelativeOffset => 83,
             Self::JumpZero(_) => 84,
             Self::JumpNonZero(_) => 85,
         }

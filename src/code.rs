@@ -1,6 +1,6 @@
 use crate::ast::{Instruction, Metadata, Node};
 use crate::base;
-use crate::base::Const;
+use crate::base::arith::Const;
 use byteorder::BigEndian;
 use byteorder::WriteBytesExt;
 use lalrpop_util;
@@ -130,7 +130,9 @@ impl Compiler {
     }
 
     fn write_u96<W: WriteBytesExt>(w: &mut W, x: Const) -> Result<(), io::Error> {
-        todo!()
+        let v = x.as_u128();
+        w.write_u32::<BigEndian>((v >> 64) as u32)?;
+        w.write_u64::<BigEndian>(v as u64)
     }
 
     fn write_string<'input, W: WriteBytesExt>(
@@ -185,6 +187,7 @@ impl Compiler {
     fn write_instruction<'input, W: WriteBytesExt>(
         w: &mut W,
         n: Node<'input>,
+        ln: &mut u16,
         type_map: &HashMap<String, u16>,
         label_map: &HashMap<&'input str, u16>,
         const_map: &HashMap<&'input str, Const>,
@@ -195,6 +198,7 @@ impl Compiler {
             Node::Instruction(i) => i,
             _ => return Err(Error::InternalUnexpectedNodeType),
         };
+        *ln += 1;
         w.write_u8(i.as_u8())?;
         match i {
             Instruction::Nop => Ok(()),
@@ -277,7 +281,7 @@ impl Compiler {
             | Instruction::LShift
             | Instruction::RShift => Ok(()),
             Instruction::Jump(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
-            Instruction::JumpRelativeOffset(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
+            Instruction::JumpRelativeOffset => Ok(()),
             Instruction::JumpZero(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
             Instruction::JumpNonZero(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
         }
@@ -299,11 +303,9 @@ impl Compiler {
             Self::index_metadata_node(*n, &mut const_map, &mut field_map)?;
         }
 
-        {
-            let mut ln = 0u16;
-            for n in ast.body.iter() {
-                Self::index_code_node(&mut ln, *n, &mut code_index, &mut label_map)?;
-            }
+        let mut ln = 0u16;
+        for n in ast.body.iter() {
+            Self::index_code_node(&mut ln, *n, &mut code_index, &mut label_map)?;
         }
 
         w.write_u32::<BigEndian>(MAGIC_NUMBER)?;
@@ -319,9 +321,18 @@ impl Compiler {
         w.write_u16::<BigEndian>(code_index.len() as u16)?;
         // Self::write_code_index(w, &code_index)?;
 
-        w.write_u16::<BigEndian>(ast.body.len() as u16)?;
+        w.write_u16::<BigEndian>(ln)?;
+        ln = 0;
         for e in ast.body.iter() {
-            Self::write_instruction(w, *e, &self.type_map, &label_map, &const_map, &field_map)?;
+            Self::write_instruction(
+                w,
+                *e,
+                &mut ln,
+                &self.type_map,
+                &label_map,
+                &const_map,
+                &field_map,
+            )?;
         }
 
         Ok(())

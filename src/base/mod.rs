@@ -1,6 +1,6 @@
 pub mod arith;
 
-use arith::U96;
+use arith::Const;
 use bitflags::bitflags;
 use std::fmt;
 use std::str::FromStr;
@@ -91,10 +91,4 @@ impl From<u8> for Symmetries {
     fn from(x: u8) -> Self {
         Self { bits: x }
     }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum Const {
-    Unsigned(U96),
-    Signed(U96),
 }

@@ -1,5 +1,5 @@
 use crate::base;
-use crate::base::arith::U96;
+use crate::base::arith::Const;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -14,7 +14,7 @@ pub struct Metadata {
   pub fg_color: String,
   pub symmetries: base::Symmetries,
   pub field_map: HashMap<String, base::FieldSelector>,
-  pub parameter_map: HashMap<String, base::Const>,
+  pub parameter_map: HashMap<String, Const>,
 }
 
 impl Metadata {
@@ -36,7 +36,7 @@ impl Metadata {
 }
 
 pub struct EventWindow {
-  data: [U96; 41],
+  data: [Const; 41],
 }
 
 impl EventWindow {
@@ -46,11 +46,11 @@ impl EventWindow {
     }
   }
 
-  pub fn get(&self, i: usize) -> Option<&U96> {
+  pub fn get(&self, i: usize) -> Option<&Const> {
     self.data.get(i)
   }
 
-  pub fn get_mut(&mut self, i: usize) -> Option<&mut U96> {
+  pub fn get_mut(&mut self, i: usize) -> Option<&mut Const> {
     self.data.get_mut(i)
   }
 }

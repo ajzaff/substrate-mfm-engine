@@ -1,24 +1,24 @@
 use crate::ast::{Arg, File, Instruction, Metadata, Node};
 use crate::base;
-use crate::base::arith::U96;
-use crate::base::{Const, Symmetries};
+use crate::base::arith::Const;
+use crate::base::Symmetries;
 use enquote::unquote;
 use std::str::FromStr;
 use std::vec::Vec;
 
 grammar;
 
-Ident: &'input str = <s:r"[_a-z][_a-zA-Z0-9]*"> => s;
+Ident: &'input str = <s:r"[_a-z][_a-zA-Z]*"> => s;
 
 String: &'input str = <s:r#""[^"]*""#> => &s[1..s.len()-1];
 
-BinNum: Const = <s:r"0b[01]+"> => Const::Unsigned(U96::from_str_radix(&s[2..], 2).unwrap());
+BinNum: Const = <s:r"0b[01]+"> => Const::from_str_radix(&s[2..], 2).unwrap();
 
-DecNum: Const = <s:r"[1-9][0-9]+|[0-9]"> => Const::Unsigned(U96::from_str_radix(s, 10).unwrap());
+DecNum: Const = <s:r"[1-9][0-9]+|[0-9]"> => Const::from_str_radix(s, 10).unwrap();
 
-HexNum: Const = <s:r"0x[0-9a-fA-F]+"> => Const::Unsigned(U96::from_str_radix(&s[2..], 16).unwrap());
+HexNum: Const = <s:r"0x[0-9a-fA-F]+"> => Const::from_str_radix(&s[2..], 16).unwrap();
 
-SignedNum: Const = <s:r"[+-][1-9][0-9]+|[+-][0-9]"> => Const::Signed(U96::from_str_radix(s, 10).unwrap());
+SignedNum: Const = <s:r"[+-][1-9][0-9]+|[+-][0-9]"> => Const::from_str_signed_radix(s, 10).unwrap();
 
 ConstExpr: Const = {
     BinNum,
@@ -72,6 +72,47 @@ pub Instruction: Node<'input> = {
     "savesymmetries" => Node::Instruction(Instruction::SaveSymmetries),
     "usesymmetries" <s:Symmetries> => Node::Instruction(Instruction::UseSymmetries(s)),
     "restoresymmetries" => Node::Instruction(Instruction::RestoreSymmetries),
+    "push0" => Node::Instruction(Instruction::Push0),
+    "push1" => Node::Instruction(Instruction::Push1),
+    "push2" => Node::Instruction(Instruction::Push2),
+    "push3" => Node::Instruction(Instruction::Push3),
+    "push4" => Node::Instruction(Instruction::Push4),
+    "push5" => Node::Instruction(Instruction::Push5),
+    "push6" => Node::Instruction(Instruction::Push6),
+    "push7" => Node::Instruction(Instruction::Push7),
+    "push8" => Node::Instruction(Instruction::Push8),
+    "push9" => Node::Instruction(Instruction::Push9),
+    "push10" => Node::Instruction(Instruction::Push10),
+    "push11" => Node::Instruction(Instruction::Push11),
+    "push12" => Node::Instruction(Instruction::Push12),
+    "push13" => Node::Instruction(Instruction::Push13),
+    "push14" => Node::Instruction(Instruction::Push14),
+    "push15" => Node::Instruction(Instruction::Push15),
+    "push16" => Node::Instruction(Instruction::Push16),
+    "push17" => Node::Instruction(Instruction::Push17),
+    "push18" => Node::Instruction(Instruction::Push18),
+    "push19" => Node::Instruction(Instruction::Push19),
+    "push20" => Node::Instruction(Instruction::Push20),
+    "push21" => Node::Instruction(Instruction::Push21),
+    "push22" => Node::Instruction(Instruction::Push22),
+    "push23" => Node::Instruction(Instruction::Push23),
+    "push24" => Node::Instruction(Instruction::Push24),
+    "push25" => Node::Instruction(Instruction::Push25),
+    "push26" => Node::Instruction(Instruction::Push26),
+    "push27" => Node::Instruction(Instruction::Push27),
+    "push28" => Node::Instruction(Instruction::Push28),
+    "push29" => Node::Instruction(Instruction::Push29),
+    "push30" => Node::Instruction(Instruction::Push30),
+    "push31" => Node::Instruction(Instruction::Push31),
+    "push32" => Node::Instruction(Instruction::Push32),
+    "push33" => Node::Instruction(Instruction::Push33),
+    "push34" => Node::Instruction(Instruction::Push34),
+    "push35" => Node::Instruction(Instruction::Push35),
+    "push36" => Node::Instruction(Instruction::Push36),
+    "push37" => Node::Instruction(Instruction::Push37),
+    "push38" => Node::Instruction(Instruction::Push38),
+    "push39" => Node::Instruction(Instruction::Push39),
+    "push40" => Node::Instruction(Instruction::Push40),
     "push" <c:ConstExpr> => Node::Instruction(Instruction::Push(c)),
     "pop" => Node::Instruction(Instruction::Pop),
     "dup" => Node::Instruction(Instruction::Dup),
@@ -99,7 +140,7 @@ pub Instruction: Node<'input> = {
     "lshift" => Node::Instruction(Instruction::LShift),
     "rshift" => Node::Instruction(Instruction::RShift),
     "jump" <i:Ident> => Node::Instruction(Instruction::Jump(Arg::Ast(i))),
-    "jumprelativeoffset" <i:Ident> => Node::Instruction(Instruction::JumpRelativeOffset(Arg::Ast(i))),
+    "jumprelativeoffset" => Node::Instruction(Instruction::JumpRelativeOffset),
     "jumpzero" <i:Ident> => Node::Instruction(Instruction::JumpZero(Arg::Ast(i))),
     "jumpnonzero" <i:Ident> => Node::Instruction(Instruction::JumpNonZero(Arg::Ast(i))),
 }

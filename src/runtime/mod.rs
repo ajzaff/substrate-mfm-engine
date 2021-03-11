@@ -2,6 +2,7 @@ pub mod mfm;
 
 use crate::ast::{Arg, Instruction};
 use crate::base;
+use crate::base::arith::Const;
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use std::collections::HashMap;
@@ -68,7 +69,7 @@ pub struct Runtime<'input> {
   ip: Option<u16>,
   symmetries_stack: Vec<base::Symmetries>,
   call_stack: Vec<u16>,
-  op_stack: Vec<base::Const>,
+  op_stack: Vec<Const>,
 }
 
 impl<'input> Runtime<'input> {
@@ -94,7 +95,7 @@ impl<'input> Runtime<'input> {
     m
   }
 
-  fn read_const<R: ReadBytesExt>(r: &mut R) -> Result<base::Const, Error> {
+  fn read_const<R: ReadBytesExt>(r: &mut R) -> Result<Const, Error> {
     todo!()
   }
 
@@ -217,8 +218,8 @@ impl<'input> Runtime<'input> {
       80 => Instruction::LShift,                                           // LShift
       81 => Instruction::RShift,                                           // RShift
       82 => Instruction::Jump(Arg::Runtime(r.read_u16::<BigEndian>()?)),   // Jump
-      83 => Instruction::JumpRelativeOffset(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpRelativeOffset
-      84 => Instruction::JumpZero(Arg::Runtime(r.read_u16::<BigEndian>()?)),           // JumpZero
+      83 => Instruction::JumpRelativeOffset,                               // JumpRelativeOffset
+      84 => Instruction::JumpZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpZero
       85 => Instruction::JumpNonZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpNonZero
       _ => return Err(Error::BadInstructionOpCode),
     };

@@ -203,6 +203,6 @@ Numbered arguments presented in reverse-polish come from the stack. Named argume
 |`[1] [0] lshift`|Push `[0] << [1]` (logical) onto the stack.|
 |`[1] [0] rshift`|Push `[0] >> [1]` (logical) onto the stack.|
 |`jump [LABEL]`|Jump to `[LABEL]` unconditionally.|
-|`[0] jumprelativeoffset [LABEL]`|Jump unconditionally a number of instructions forward or backward specified by `[0]` (signed).|
+|`[0] jumprelativeoffset`|Jump unconditionally a number of instructions forward or backward specified by `[0]` (signed).|
 |`[0] jumpzero [LABEL]`|Jump to `[LABEL]` iff `[0] == 0`.|
 |`[0] jumpnonzero [LABEL]`|Jump to `[LABEL]` iff `[0] != 0`.|
