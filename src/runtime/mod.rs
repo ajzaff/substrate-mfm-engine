@@ -1,8 +1,8 @@
 pub mod mfm;
 
 use crate::ast::{Arg, Instruction};
-use crate::base;
 use crate::base::arith::Const;
+use crate::base::{FieldSelector, Symmetries};
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use std::collections::HashMap;
@@ -18,6 +18,8 @@ pub enum Error {
   TagMismatch,
   BadMetadataOpCode,
   BadInstructionOpCode,
+  NoElement,
+  UnknownElement,
 }
 
 impl From<io::Error> for Error {
@@ -36,6 +38,8 @@ impl fmt::Display for Error {
       Self::TagMismatch => "tag mismatch",
       Self::BadMetadataOpCode => "bad metadata opcode",
       Self::BadInstructionOpCode => "bad instruction opcode",
+      Self::NoElement => "no element",
+      Self::UnknownElement => "unknown element",
     };
     write!(f, "{}", s)
   }
@@ -63,13 +67,36 @@ impl Element<'_> {
   }
 }
 
+struct Cursor {
+  ip: usize,
+  symmetries: Symmetries,
+  symmetries_stack: Vec<Symmetries>,
+  call_stack: Vec<usize>,
+  op_stack: Vec<Const>,
+}
+
+impl Cursor {
+  fn new() -> Self {
+    Self {
+      ip: 0,
+      symmetries: Symmetries::R000L,
+      symmetries_stack: Vec::new(),
+      call_stack: Vec::new(),
+      op_stack: Vec::new(),
+    }
+  }
+
+  fn reset(&mut self) {
+    self.ip = 0;
+    self.symmetries_stack.clear();
+    self.call_stack.clear();
+    self.op_stack.clear();
+  }
+}
+
 pub struct Runtime<'input> {
   tag: Option<u64>,
-  element_map: HashMap<String, Element<'input>>,
-  ip: Option<u16>,
-  symmetries_stack: Vec<base::Symmetries>,
-  call_stack: Vec<u16>,
-  op_stack: Vec<Const>,
+  element_map: HashMap<u16, Element<'input>>,
 }
 
 impl<'input> Runtime<'input> {
@@ -80,18 +107,13 @@ impl<'input> Runtime<'input> {
     Self {
       tag: None,
       element_map: Self::new_element_map(),
-      ip: None,
-      symmetries_stack: Vec::new(),
-      call_stack: Vec::new(),
-      op_stack: Vec::new(),
     }
   }
 
-  fn new_element_map() -> HashMap<String, Element<'input>> {
+  fn new_element_map() -> HashMap<u16, Element<'input>> {
     let mut m = HashMap::new();
     let mut empty = Element::new();
-    empty.metadata.name = "Empty".to_string();
-    m.insert("Empty".to_string(), empty);
+    m.insert(0, empty);
     m
   }
 
@@ -118,7 +140,7 @@ impl<'input> Runtime<'input> {
       9 => {
         // Field
         let i = Self::read_string(r)?;
-        let f: base::FieldSelector = r.read_u16::<BigEndian>()?.into();
+        let f: FieldSelector = r.read_u16::<BigEndian>()?.into();
         elem.metadata.field_map.insert(i, f);
       }
       10 => {
@@ -259,17 +281,172 @@ impl<'input> Runtime<'input> {
     Ok(())
   }
 
-  pub fn reset(&mut self) {
-    self.symmetries_stack.truncate(0);
-    self.call_stack.truncate(0);
-    self.op_stack.truncate(0);
-    self.ip = None;
-  }
-
   pub fn execute(&mut self, ew: &mfm::EventWindow) -> Result<(), Error> {
-    self.reset();
-    self.ip = Some(0);
-    let elem = ew.get(0);
-    todo!()
+    let my_atom = ew.get(0).ok_or(Error::NoElement)?;
+    let my_type = my_atom.apply(FieldSelector::TYPE).as_u128() as u16;
+    let my_elem = self
+      .element_map
+      .get(&my_type)
+      .ok_or(Error::UnknownElement)?;
+    let mut cursor = Cursor::new();
+    while (cursor.ip as usize) < my_elem.code.len() {
+      match my_elem.code[cursor.ip as usize] {
+        Instruction::Nop => {}
+        Instruction::Exit => break,
+        Instruction::SwapSites => todo!(),
+        Instruction::SetSite => todo!(),
+        Instruction::SetField(_) => todo!(),
+        Instruction::SetSiteField(_) => todo!(),
+        Instruction::GetSite => todo!(),
+        Instruction::GetField(_) => todo!(),
+        Instruction::GetSiteField(_) => todo!(),
+        Instruction::GetType(_) => todo!(),
+        Instruction::GetParameter(_) => todo!(),
+        Instruction::Scan => todo!(),
+        Instruction::SaveSymmetries => cursor.symmetries_stack.push(cursor.symmetries),
+        Instruction::UseSymmetries(x) => cursor.symmetries = x,
+        Instruction::RestoreSymmetries => {
+          cursor.symmetries = cursor.symmetries_stack.pop().unwrap()
+        }
+        Instruction::Push0 => cursor.op_stack.push(0.into()),
+        Instruction::Push1 => cursor.op_stack.push(1.into()),
+        Instruction::Push2 => cursor.op_stack.push(2.into()),
+        Instruction::Push3 => cursor.op_stack.push(3.into()),
+        Instruction::Push4 => cursor.op_stack.push(4.into()),
+        Instruction::Push5 => cursor.op_stack.push(5.into()),
+        Instruction::Push6 => cursor.op_stack.push(6.into()),
+        Instruction::Push7 => cursor.op_stack.push(7.into()),
+        Instruction::Push8 => cursor.op_stack.push(8.into()),
+        Instruction::Push9 => cursor.op_stack.push(9.into()),
+        Instruction::Push10 => cursor.op_stack.push(10.into()),
+        Instruction::Push11 => cursor.op_stack.push(11.into()),
+        Instruction::Push12 => cursor.op_stack.push(12.into()),
+        Instruction::Push13 => cursor.op_stack.push(13.into()),
+        Instruction::Push14 => cursor.op_stack.push(14.into()),
+        Instruction::Push15 => cursor.op_stack.push(15.into()),
+        Instruction::Push16 => cursor.op_stack.push(16.into()),
+        Instruction::Push17 => cursor.op_stack.push(17.into()),
+        Instruction::Push18 => cursor.op_stack.push(18.into()),
+        Instruction::Push19 => cursor.op_stack.push(19.into()),
+        Instruction::Push20 => cursor.op_stack.push(20.into()),
+        Instruction::Push21 => cursor.op_stack.push(21.into()),
+        Instruction::Push22 => cursor.op_stack.push(22.into()),
+        Instruction::Push23 => cursor.op_stack.push(23.into()),
+        Instruction::Push24 => cursor.op_stack.push(24.into()),
+        Instruction::Push25 => cursor.op_stack.push(25.into()),
+        Instruction::Push26 => cursor.op_stack.push(26.into()),
+        Instruction::Push27 => cursor.op_stack.push(27.into()),
+        Instruction::Push28 => cursor.op_stack.push(28.into()),
+        Instruction::Push29 => cursor.op_stack.push(29.into()),
+        Instruction::Push30 => cursor.op_stack.push(30.into()),
+        Instruction::Push31 => cursor.op_stack.push(31.into()),
+        Instruction::Push32 => cursor.op_stack.push(32.into()),
+        Instruction::Push33 => cursor.op_stack.push(33.into()),
+        Instruction::Push34 => cursor.op_stack.push(34.into()),
+        Instruction::Push35 => cursor.op_stack.push(35.into()),
+        Instruction::Push36 => cursor.op_stack.push(36.into()),
+        Instruction::Push37 => cursor.op_stack.push(37.into()),
+        Instruction::Push38 => cursor.op_stack.push(38.into()),
+        Instruction::Push39 => cursor.op_stack.push(39.into()),
+        Instruction::Push40 => cursor.op_stack.push(40.into()),
+        Instruction::Push(c) => cursor.op_stack.push(c),
+        Instruction::Pop => {
+          cursor.op_stack.pop();
+        }
+        Instruction::Dup => cursor
+          .op_stack
+          .push(cursor.op_stack[cursor.op_stack.len() - 1]),
+        Instruction::Over => cursor
+          .op_stack
+          .push(cursor.op_stack[cursor.op_stack.len() - 2]),
+        Instruction::Swap => {
+          let n = cursor.op_stack.len();
+          cursor.op_stack.swap(n - 2, n - 1);
+        }
+        Instruction::Rot => {
+          let n = cursor.op_stack.len();
+          cursor.op_stack.swap(n - 2, n - 1);
+          cursor.op_stack.swap(n - 3, n - 2);
+        }
+        Instruction::Call(x) => {
+          cursor.call_stack.push(cursor.ip);
+          cursor.ip = *x.runtime() as usize;
+        }
+        Instruction::Ret => cursor.ip = cursor.call_stack.pop().unwrap(),
+        Instruction::Checksum => todo!(),
+        Instruction::Add => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(b + a)
+        }
+        Instruction::Sub => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(b - a)
+        }
+        Instruction::Neg => {
+          let a = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(-a)
+        }
+        Instruction::Mod => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(b % a)
+        }
+        Instruction::Mul => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(b * a)
+        }
+        Instruction::Div => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(b / a)
+        }
+        Instruction::Less => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(if b < a { 1 } else { 0 }.into())
+        }
+        Instruction::LessEqual => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(if b <= a { 1 } else { 0 }.into())
+        }
+        Instruction::Or => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(b | a)
+        }
+        Instruction::And => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(b & a)
+        }
+        Instruction::Xor => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(b ^ a)
+        }
+        Instruction::Equal => {
+          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(if b == a { 1 } else { 0 }.into())
+        }
+        Instruction::BitCount => {
+          let c = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(c.as_u128().count_ones().into());
+        }
+        Instruction::BitScanForward => todo!(),
+        Instruction::BitScanReverse => todo!(),
+        Instruction::LShift => todo!(),
+        Instruction::RShift => todo!(),
+        Instruction::Jump(x) => cursor.ip = *x.runtime() as usize,
+        Instruction::JumpRelativeOffset => todo!(),
+        Instruction::JumpZero(x) => cursor.ip = *x.runtime() as usize,
+        Instruction::JumpNonZero(x) => cursor.ip = *x.runtime() as usize,
+      }
+    }
+    Ok(())
   }
 }

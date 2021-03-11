@@ -1,11 +1,12 @@
+use crate::base::FieldSelector;
 use std::fmt;
 use std::num::ParseIntError;
-use std::ops::{Add, BitAnd, Div, Shl, Shr, Sub};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub enum Const {
     Unsigned(u128),
-    Signed(i128),
+    Signed(i128), // FIXME: signed doesn't support variable width
 }
 
 impl Const {
@@ -29,6 +30,10 @@ impl Const {
             Self::Unsigned(x) => x as i128,
             Self::Signed(x) => x,
         }
+    }
+
+    pub fn apply(self, f: FieldSelector) -> Self {
+        (self >> f.offset) & ((1u128 << (f.length - 1)) - 1).into()
     }
 }
 
@@ -123,6 +128,17 @@ impl Sub for Const {
     }
 }
 
+impl Mul for Const {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self {
+        match self {
+            Self::Unsigned(x) => Self::Unsigned(x * rhs.as_u128()),
+            Self::Signed(x) => Self::Signed(x * rhs.as_i128()),
+        }
+    }
+}
+
 impl Div for Const {
     type Output = Self;
 
@@ -130,6 +146,28 @@ impl Div for Const {
         match self {
             Self::Unsigned(x) => Self::Unsigned(x / rhs.as_u128()),
             Self::Signed(x) => Self::Signed(x / rhs.as_i128()),
+        }
+    }
+}
+
+impl Rem for Const {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self {
+        match self {
+            Self::Unsigned(x) => Self::Unsigned(x % rhs.as_u128()),
+            Self::Signed(x) => Self::Signed(x % rhs.as_i128()),
+        }
+    }
+}
+
+impl Neg for Const {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        match self {
+            Self::Unsigned(x) => Self::Signed(-(x as i128)),
+            Self::Signed(x) => Self::Signed(-x),
         }
     }
 }
@@ -163,6 +201,28 @@ impl BitAnd for Const {
         match self {
             Self::Unsigned(x) => Self::Unsigned(x & rhs.as_u128()),
             Self::Signed(x) => Self::Signed(x & rhs.as_i128()),
+        }
+    }
+}
+
+impl BitOr for Const {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self {
+        match self {
+            Self::Unsigned(x) => Self::Unsigned(x | rhs.as_u128()),
+            Self::Signed(x) => Self::Signed(x | rhs.as_i128()),
+        }
+    }
+}
+
+impl BitXor for Const {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self {
+        match self {
+            Self::Unsigned(x) => Self::Unsigned(x ^ rhs.as_u128()),
+            Self::Signed(x) => Self::Signed(x ^ rhs.as_i128()),
         }
     }
 }

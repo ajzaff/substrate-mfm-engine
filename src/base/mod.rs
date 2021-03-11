@@ -1,6 +1,5 @@
 pub mod arith;
 
-use arith::Const;
 use bitflags::bitflags;
 use std::fmt;
 use std::str::FromStr;
@@ -45,12 +44,6 @@ impl From<u16> for FieldSelector {
             offset: x as u8,
             length: (x >> 8) as u8,
         }
-    }
-}
-
-impl FieldSelector {
-    pub fn select(&self, x: Const) -> Const {
-        todo!()
     }
 }
 
