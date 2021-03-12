@@ -9,6 +9,7 @@ File {
   u2          major_version;
   u1          build_tag_len;
   u1          [build_tag; build_tag_len];
+  u2          self_type_num;
   u1          metadata_size;
   md_entry    [metadata; metadata_size];
   u2          code_index_size;
@@ -34,9 +35,13 @@ Currently set to 1.
 
 Currently set to 0.
 
-## Compile Tag
+## Build Tag
 
 A compile tag is used to identify a batch of files compiled together. In order to create a consistent type numbering (physics), only files with the same compile tag should be used together.
+
+## Self Type Number
+
+My type number, equivalent to `gettype "Self"` or `push0 getsitefield type`.
 
 ## Metadata Size
 

@@ -40,9 +40,9 @@ pub struct EventWindow {
 }
 
 impl EventWindow {
-  fn new() -> Self {
+  pub fn new() -> Self {
     Self {
-      data: [(0 as u128).into(); 41],
+      data: [0u128.into(); 41],
     }
   }
 

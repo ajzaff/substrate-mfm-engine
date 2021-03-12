@@ -12,6 +12,7 @@ use std::io;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
   IOError,
+  FromUtf8Error,
   WrongMagicNumber,
   WrongMinorVersion,
   WrongMajorVersion,
@@ -28,10 +29,17 @@ impl From<io::Error> for Error {
   }
 }
 
+impl From<std::string::FromUtf8Error> for Error {
+  fn from(_: std::string::FromUtf8Error) -> Self {
+    Self::FromUtf8Error
+  }
+}
+
 impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let s = match self {
       Self::IOError => "IO error",
+      Self::FromUtf8Error => "UTF-8 error",
       Self::WrongMagicNumber => "wrong magic number",
       Self::WrongMinorVersion => "wrong minor version",
       Self::WrongMajorVersion => "wrong major version",
@@ -95,7 +103,7 @@ impl Cursor {
 }
 
 pub struct Runtime<'input> {
-  tag: Option<u64>,
+  tag: Option<String>,
   element_map: HashMap<u16, Element<'input>>,
 }
 
@@ -113,6 +121,7 @@ impl<'input> Runtime<'input> {
   fn new_element_map() -> HashMap<u16, Element<'input>> {
     let mut m = HashMap::new();
     let mut empty = Element::new();
+    empty.metadata.name = "Empty".to_owned();
     m.insert(0, empty);
     m
   }
@@ -122,7 +131,10 @@ impl<'input> Runtime<'input> {
   }
 
   fn read_string<R: ReadBytesExt>(r: &mut R) -> Result<String, Error> {
-    todo!()
+    let n = r.read_u16::<BigEndian>()?;
+    let mut b = vec![0u8; n as usize];
+    r.read_exact(&mut b)?;
+    Ok(String::from_utf8(b)?)
   }
 
   fn read_metadata<R: ReadBytesExt>(r: &mut R, elem: &mut Element) -> Result<(), Error> {
@@ -259,15 +271,16 @@ impl<'input> Runtime<'input> {
     if r.read_u16::<BigEndian>()? != Self::MAJOR_VERSION {
       return Err(Error::WrongMajorVersion);
     }
-    let tag = r.read_u64::<BigEndian>()?;
-    if let Some(t) = self.tag {
-      if tag != t {
+    let tag = Self::read_string(r)?;
+    if self.tag.is_some() {
+      if self.tag.as_ref() != Some(&tag) {
         return Err(Error::TagMismatch);
       }
     } else {
       self.tag = Some(tag);
     }
 
+    let type_num = r.read_u16::<BigEndian>()?;
     let mut elem = Element::new();
 
     for _ in 0..r.read_u8()? {
@@ -278,6 +291,7 @@ impl<'input> Runtime<'input> {
       Self::read_instruction(r, &mut elem)?;
     }
 
+    self.element_map.insert(type_num, elem);
     Ok(())
   }
 

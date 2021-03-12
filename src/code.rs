@@ -95,11 +95,17 @@ impl Compiler {
 
     fn index_metadata_node<'input>(
         n: Node<'input>,
+        type_map: &mut HashMap<String, u16>,
         const_map: &mut HashMap<&'input str, Const>,
         field_map: &mut HashMap<&'input str, base::FieldSelector>,
     ) -> Result<(), Error<'input>> {
         match n {
             Node::Metadata(i) => match i {
+                Metadata::Name(i) => {
+                    let n = type_map.len();
+                    type_map.insert(i.to_owned(), n as u16);
+                    type_map.insert("Self".to_owned(), n as u16);
+                }
                 Metadata::Parameter(i, c) => {
                     const_map.insert(i, c);
                 }
@@ -300,7 +306,7 @@ impl Compiler {
         let mut field_map: HashMap<&'input str, base::FieldSelector> = Self::new_field_map();
 
         for n in ast.header.iter() {
-            Self::index_metadata_node(*n, &mut const_map, &mut field_map)?;
+            Self::index_metadata_node(*n, &mut self.type_map, &mut const_map, &mut field_map)?;
         }
 
         let mut ln = 0u16;
@@ -312,6 +318,7 @@ impl Compiler {
         w.write_u16::<BigEndian>(Self::MINOR_VERSION)?;
         w.write_u16::<BigEndian>(Self::MAJOR_VERSION)?;
         Self::write_string(w, self.build_tag.as_str())?;
+        w.write_u16::<BigEndian>(self.type_map["Self"]);
 
         w.write_u8(ast.header.len() as u8)?;
         for e in ast.header.iter() {
