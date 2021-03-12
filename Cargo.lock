@@ -1037,6 +1037,7 @@ dependencies = [
  "atty",
  "bitflags",
  "byteorder",
+ "clap",
  "enquote",
  "failure",
  "lalrpop",

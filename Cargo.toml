@@ -10,6 +10,7 @@ build = "build.rs" # LALRPOP preprocessing
 lalrpop = "0.19.4"
 
 [dependencies]
+clap = "2.33"
 lazy_static = "1.4"
 byteorder = "1.4"
 failure = "0.1"

@@ -11,7 +11,7 @@ use std::io;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
-  IOError,
+  IOError(String),
   FromUtf8Error,
   WrongMagicNumber,
   WrongMinorVersion,
@@ -24,8 +24,8 @@ pub enum Error {
 }
 
 impl From<io::Error> for Error {
-  fn from(_: io::Error) -> Self {
-    Self::IOError
+  fn from(x: io::Error) -> Self {
+    Self::IOError(x.to_string())
   }
 }
 
@@ -38,7 +38,7 @@ impl From<std::string::FromUtf8Error> for Error {
 impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let s = match self {
-      Self::IOError => "IO error",
+      Self::IOError(x) => return write!(f, "IO error: {}", x),
       Self::FromUtf8Error => "UTF-8 error",
       Self::WrongMagicNumber => "wrong magic number",
       Self::WrongMinorVersion => "wrong minor version",
@@ -365,7 +365,7 @@ impl<'input> Runtime<'input> {
         Instruction::Push40 => cursor.op_stack.push(40.into()),
         Instruction::Push(c) => cursor.op_stack.push(c),
         Instruction::Pop => {
-          cursor.op_stack.pop();
+          cursor.op_stack.pop().expect("stack underflow");
         }
         Instruction::Dup => cursor
           .op_stack

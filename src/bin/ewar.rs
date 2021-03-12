@@ -9,57 +9,117 @@ mod ast;
 
 use crate::runtime::mfm::EventWindow;
 use crate::runtime::Runtime;
-use quicli::prelude::*;
-use std::fmt;
+use clap::arg_enum;
 use std::fs::File;
 use std::io::BufReader;
-use std::num::ParseIntError;
 use std::path::Path;
 use structopt::StructOpt;
 
-#[derive(Debug)]
-enum Error {
-  CliError,
+arg_enum! {
+  #[derive(Debug)]
+    enum Output {
+      BeforeAfter,
+      After,
+    }
 }
 
-impl From<ParseIntError> for Error {
-  fn from(_: ParseIntError) -> Error {
-    Error::CliError
-  }
+arg_enum! {
+  #[derive(Debug)]
+    enum OutputMode {
+      Raw,
+      Graphical,
+    }
 }
 
-impl fmt::Display for Error {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "error")
-  }
+arg_enum! {
+  #[derive(Debug)]
+    enum ColorMode {
+      None,
+      Color,
+    }
 }
 
-#[derive(StructOpt)]
+#[derive(Debug, StructOpt)]
+#[structopt(
+  name = "ewar",
+  about = "Execute event window assembly (EWAL) and collect detailed statistics."
+)]
 struct Cli {
-  #[structopt(long = "input", short = "i")]
-  input: Vec<String>,
+  #[structopt(name = "INPUT", required = true)]
+  input: String,
+
+  #[structopt(
+    long = "random-seed",
+    help = "A 64 bit random seed used to initialize the random number generator. Random state is never reseeded in case multiple trials are used.",
+    default_value = "1337"
+  )]
+  random_seed: u64,
+
+  #[structopt(
+    long = "trials",
+    short = "n",
+    help = "The number of distinct trials to run. The event window will be cleared and reseeded but random state will not be reset.",
+    default_value = "1"
+  )]
+  n: u32,
+
+  #[structopt(
+    long = "seed-element",
+    short = "s",
+    help = "An element executed prior to each run which initializes the event window. The input element will be placed automatically after each time executing the seed."
+  )]
+  seed_element: Option<String>,
+
+  #[structopt(
+    long = "test",
+    short = "t",
+    help = "Configures test mode, which asserts the contents of the event window matches the given representation (b64; rfc-4648). An exit code 0 indicates a PASS and 1 a FAIL."
+  )]
+  expect: Option<String>,
+
+  #[structopt(
+    long = "output",
+    short = "o",
+    possible_values = &Output::variants(),
+    case_insensitive = true,
+    help = "Configures output artifacts (such as event window images).",
+    default_value = "beforeafter",
+  )]
+  output: Output,
+
+  #[structopt(
+    long = "output_mode",
+    possible_values = &OutputMode::variants(),
+    case_insensitive = true,
+    help = "Configures output display mode.",
+    default_value = "graphical",
+  )]
+  output_mode: OutputMode,
+
+  #[structopt(
+    long = "color",
+    possible_values = &ColorMode::variants(),
+    case_insensitive = true,
+    help = "Configures color display mode.",
+    default_value = "color",
+  )]
+  color: ColorMode,
 }
 
-fn main() -> CliResult {
-  Ok(ewar_main()?)
-}
-
-fn ewar_main() -> Result<(), failure::Error> {
+fn main() {
   let args = Cli::from_args();
+  ewar_main(&args);
+}
+
+fn ewar_main(args: &Cli) {
   let mut runtime = Runtime::new();
 
-  for i in args.input {
-    let mut file = File::open(Path::new::<String>(&i))?;
-    let mut r = BufReader::new(&mut file);
-    if let Err(why) = runtime.load_from_reader(&mut r) {
-      return Err(format_err!("failed to compile input file: {}", why));
-    }
-  }
+  let mut file = File::open(Path::new::<String>(&args.input)).expect("Failed to open input file");
+  let mut r = BufReader::new(&mut file);
+  runtime
+    .load_from_reader(&mut r)
+    .expect("Failed to process input file");
 
   let mut ew = EventWindow::new();
-  if let Err(why) = runtime.execute(&mut ew) {
-    return Err(format_err!("failed to execute: {}", why));
-  }
-
-  Ok(())
+  runtime.execute(&mut ew).expect("Failed to execute");
 }
