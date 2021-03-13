@@ -6,48 +6,36 @@ use byteorder::WriteBytesExt;
 use lalrpop_util;
 use lalrpop_util::lalrpop_mod;
 use std::collections::HashMap;
-use std::fmt;
 use std::io;
+use thiserror;
 
 lalrpop_mod!(pub substrate); // syntesized by LALRPOP
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum Error<'input> {
-    IOError,
+#[derive(thiserror::Error, Debug)]
+pub enum CompileError<'input> {
+    #[error("IO error")]
+    IOError(#[from] io::Error),
+    #[error("parse error")]
     ParseError(lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>),
+    #[error("internal error")]
     InternalError,
+    #[error("unexpected node type")]
     InternalUnexpectedNodeType,
+    #[error("unexpected args count")]
     InternalUnexpectedArgsCount,
+    #[error("unexpected arg type")]
     InternalUnexpectedArgType,
-}
-
-impl From<io::Error> for Error<'_> {
-    fn from(_: io::Error) -> Self {
-        Error::IOError
-    }
+    #[error("max code size reached: branches are unstable")]
+    MaxCodeSize,
 }
 
 impl<'input> From<lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>>
-    for Error<'input>
+    for CompileError<'input>
 {
     fn from(
         x: lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>,
     ) -> Self {
-        Error::ParseError(x)
-    }
-}
-
-impl fmt::Display for Error<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Self::IOError => "IO error",
-            Self::ParseError(x) => return x.fmt(f),
-            Self::InternalError => "internal error",
-            Self::InternalUnexpectedNodeType => "internal: unexpected node type",
-            Self::InternalUnexpectedArgsCount => "internal: unexpected args count",
-            Self::InternalUnexpectedArgType => "internal: unexpected arg type",
-        };
-        write!(f, "{}", s)
+        CompileError::ParseError(x)
     }
 }
 
@@ -71,6 +59,7 @@ pub struct Compiler {
 impl Compiler {
     const MINOR_VERSION: u16 = 1;
     const MAJOR_VERSION: u16 = 0;
+    const MAX_CODE_SIZE: usize = (u16::MAX - 1) as usize;
 
     pub fn new(build_tag: &str) -> Self {
         Self {
@@ -98,7 +87,7 @@ impl Compiler {
         type_map: &mut HashMap<String, u16>,
         const_map: &mut HashMap<&'input str, Const>,
         field_map: &mut HashMap<&'input str, base::FieldSelector>,
-    ) -> Result<(), Error<'input>> {
+    ) -> Result<(), CompileError<'input>> {
         match n {
             Node::Metadata(i) => match i {
                 Metadata::Name(i) => {
@@ -114,7 +103,7 @@ impl Compiler {
                 }
                 _ => {}
             },
-            _ => return Err(Error::InternalUnexpectedNodeType),
+            _ => return Err(CompileError::InternalUnexpectedNodeType),
         }
         Ok(())
     }
@@ -124,13 +113,13 @@ impl Compiler {
         n: Node<'input>,
         code_index: &mut HashMap<u16, CodeEntry>,
         label_map: &mut HashMap<&'input str, u16>,
-    ) -> Result<(), Error<'input>> {
+    ) -> Result<(), CompileError<'input>> {
         match n {
             Node::Label(x) => {
                 label_map.insert(x, *ln + 1);
             }
             Node::Instruction(i) => *ln += 1,
-            _ => return Err(Error::InternalUnexpectedNodeType),
+            _ => return Err(CompileError::InternalUnexpectedNodeType),
         }
         Ok(())
     }
@@ -144,7 +133,7 @@ impl Compiler {
     fn write_string<'input, W: WriteBytesExt>(
         w: &mut W,
         x: &'input str,
-    ) -> Result<(), Error<'input>> {
+    ) -> Result<(), CompileError<'input>> {
         let data = x.as_bytes();
         w.write_u8(data.len() as u8)?;
         w.write_all(data)?;
@@ -156,10 +145,10 @@ impl Compiler {
         n: Node<'input>,
         const_map: &HashMap<&'input str, Const>,
         field_map: &HashMap<&'input str, base::FieldSelector>,
-    ) -> Result<(), Error<'input>> {
+    ) -> Result<(), CompileError<'input>> {
         let m = match n {
             Node::Metadata(m) => m,
-            _ => return Err(Error::InternalUnexpectedNodeType),
+            _ => return Err(CompileError::InternalUnexpectedNodeType),
         };
         w.write_u8(m.as_u8())?;
         match m {
@@ -186,7 +175,7 @@ impl Compiler {
     fn write_code_index<'input, W: WriteBytesExt>(
         w: &mut W,
         code_index: &HashMap<u16, CodeEntry>,
-    ) -> Result<(), Error<'input>> {
+    ) -> Result<(), CompileError<'input>> {
         todo!()
     }
 
@@ -198,11 +187,11 @@ impl Compiler {
         label_map: &HashMap<&'input str, u16>,
         const_map: &HashMap<&'input str, Const>,
         field_map: &HashMap<&'input str, base::FieldSelector>,
-    ) -> Result<(), Error<'input>> {
+    ) -> Result<(), CompileError<'input>> {
         let i = match n {
             Node::Label(_) => return Ok(()),
             Node::Instruction(i) => i,
-            _ => return Err(Error::InternalUnexpectedNodeType),
+            _ => return Err(CompileError::InternalUnexpectedNodeType),
         };
         *ln += 1;
         w.write_u8(i.as_u8())?;
@@ -298,8 +287,13 @@ impl Compiler {
         &'input mut self,
         w: &mut W,
         src: &'input str,
-    ) -> Result<(), Error<'input>> {
+    ) -> Result<(), CompileError<'input>> {
         let ast = substrate::FileParser::new().parse(src)?;
+
+        if ast.body.len() > Self::MAX_CODE_SIZE {
+            return Err(CompileError::MaxCodeSize);
+        }
+
         let mut code_index: HashMap<u16, CodeEntry> = HashMap::new();
         let mut label_map: HashMap<&'input str, u16> = HashMap::new();
         let mut const_map: HashMap<&'input str, Const> = HashMap::new();
@@ -318,7 +312,7 @@ impl Compiler {
         w.write_u16::<BigEndian>(Self::MINOR_VERSION)?;
         w.write_u16::<BigEndian>(Self::MAJOR_VERSION)?;
         Self::write_string(w, self.build_tag.as_str())?;
-        w.write_u16::<BigEndian>(self.type_map["Self"]);
+        w.write_u16::<BigEndian>(self.type_map["Self"])?;
 
         w.write_u8(ast.header.len() as u8)?;
         for e in ast.header.iter() {
