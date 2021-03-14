@@ -120,8 +120,8 @@ A label at the end of the program is often provided, conventionally called `exit
 
 ```
   // ...
-  jumpnonzero exit $field
-  sub $field 1
+  jumpnonzero exit
+  sub 1
 exit:
   // program ends
 ```
