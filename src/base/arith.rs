@@ -18,6 +18,13 @@ impl Const {
         i128::from_str_radix(s, radix).map(|x| Self::Signed(x))
     }
 
+    pub fn is_zero(&self) -> bool {
+        match self {
+            Self::Unsigned(x) => *x == 0,
+            Self::Signed(x) => *x == 0,
+        }
+    }
+
     pub fn as_u128(self) -> u128 {
         match self {
             Self::Unsigned(x) => x,

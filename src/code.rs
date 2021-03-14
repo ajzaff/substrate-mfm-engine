@@ -111,14 +111,14 @@ impl Compiler {
     fn index_code_node<'input>(
         ln: &mut u16,
         n: Node<'input>,
-        code_index: &mut HashMap<u16, CodeEntry>,
+        _code_index: &mut HashMap<u16, CodeEntry>,
         label_map: &mut HashMap<&'input str, u16>,
     ) -> Result<(), CompileError<'input>> {
         match n {
-            Node::Label(x) => {
-                label_map.insert(x, *ln + 1);
+            Node::Label(i) => {
+                label_map.insert(i, *ln);
             }
-            Node::Instruction(i) => *ln += 1,
+            Node::Instruction(_) => *ln += 1,
             _ => return Err(CompileError::InternalUnexpectedNodeType),
         }
         Ok(())
@@ -182,7 +182,6 @@ impl Compiler {
     fn write_instruction<'input, W: WriteBytesExt>(
         w: &mut W,
         n: Node<'input>,
-        ln: &mut u16,
         type_map: &HashMap<String, u16>,
         label_map: &HashMap<&'input str, u16>,
         const_map: &HashMap<&'input str, Const>,
@@ -193,7 +192,6 @@ impl Compiler {
             Node::Instruction(i) => i,
             _ => return Err(CompileError::InternalUnexpectedNodeType),
         };
-        *ln += 1;
         w.write_u8(i.as_u8())?;
         match i {
             Instruction::Nop => Ok(()),
@@ -304,10 +302,13 @@ impl Compiler {
             Self::index_metadata_node(*n, &mut self.type_map, &mut const_map, &mut field_map)?;
         }
 
-        let mut ln = 0u16;
-        for n in ast.body.iter() {
-            Self::index_code_node(&mut ln, *n, &mut code_index, &mut label_map)?;
-        }
+        let code_lines = {
+            let mut ln = 0u16;
+            for n in ast.body.iter() {
+                Self::index_code_node(&mut ln, *n, &mut code_index, &mut label_map)?;
+            }
+            ln
+        };
 
         w.write_u32::<BigEndian>(MAGIC_NUMBER)?;
         w.write_u16::<BigEndian>(Self::MINOR_VERSION)?;
@@ -323,18 +324,9 @@ impl Compiler {
         w.write_u16::<BigEndian>(code_index.len() as u16)?;
         // Self::write_code_index(w, &code_index)?;
 
-        w.write_u16::<BigEndian>(ln)?;
-        ln = 0;
+        w.write_u16::<BigEndian>(code_lines)?;
         for e in ast.body.iter() {
-            Self::write_instruction(
-                w,
-                *e,
-                &mut ln,
-                &self.type_map,
-                &label_map,
-                &const_map,
-                &field_map,
-            )?;
+            Self::write_instruction(w, *e, &self.type_map, &label_map, &const_map, &field_map)?;
         }
 
         Ok(())

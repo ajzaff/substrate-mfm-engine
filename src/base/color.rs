@@ -11,6 +11,16 @@ impl From<u32> for Color {
   }
 }
 
+impl Color {
+  pub fn new() -> Self {
+    Self(0)
+  }
+
+  pub fn bits(&self) -> u32 {
+    return self.0;
+  }
+}
+
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ParseColorError {
   #[error("parse uint32 color")]
