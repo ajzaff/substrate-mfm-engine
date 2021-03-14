@@ -6,51 +6,31 @@ use crate::base::{FieldSelector, Symmetries};
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use std::collections::HashMap;
-use std::fmt;
 use std::io;
+use thiserror;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-  IOError(String),
-  FromUtf8Error,
-  WrongMagicNumber,
-  WrongMinorVersion,
-  WrongMajorVersion,
-  TagMismatch,
-  BadMetadataOpCode,
-  BadInstructionOpCode,
+  #[error("IO error")]
+  IOError(#[from] io::Error),
+  #[error("UTF-8 error")]
+  FromUtf8Error(#[from] std::string::FromUtf8Error),
+  #[error("bad magic number: {0}")]
+  BadMagicNumber(u32),
+  #[error("wrong minor version")]
+  BadMinorVersion(u16),
+  #[error("wrong major version")]
+  BadMajorVersion(u16),
+  #[error("build tag mismatch: {got:?} but expected: {want:?}")]
+  BuildTagMismatch { want: String, got: String },
+  #[error("bad metadata op code: {0}")]
+  BadMetadataOpCode(u8),
+  #[error("bad instruction op code: {0}")]
+  BadInstructionOpCode(u8),
+  #[error("no element")]
   NoElement,
-  UnknownElement,
-}
-
-impl From<io::Error> for Error {
-  fn from(x: io::Error) -> Self {
-    Self::IOError(x.to_string())
-  }
-}
-
-impl From<std::string::FromUtf8Error> for Error {
-  fn from(_: std::string::FromUtf8Error) -> Self {
-    Self::FromUtf8Error
-  }
-}
-
-impl fmt::Display for Error {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let s = match self {
-      Self::IOError(x) => return write!(f, "IO error: {}", x),
-      Self::FromUtf8Error => "UTF-8 error",
-      Self::WrongMagicNumber => "wrong magic number",
-      Self::WrongMinorVersion => "wrong minor version",
-      Self::WrongMajorVersion => "wrong major version",
-      Self::TagMismatch => "tag mismatch",
-      Self::BadMetadataOpCode => "bad metadata opcode",
-      Self::BadInstructionOpCode => "bad instruction opcode",
-      Self::NoElement => "no element",
-      Self::UnknownElement => "unknown element",
-    };
-    write!(f, "{}", s)
-  }
+  #[error("running unknown element: {0}")]
+  UnknownElement(u16),
 }
 
 pub fn load_from_bytes<'input>(bytes: &'input mut &[u8]) -> Result<Runtime<'input>, Error> {
@@ -162,7 +142,7 @@ impl<'input> Runtime<'input> {
         let c = Self::read_const(r)?;
         elem.metadata.parameter_map.insert(i, c);
       }
-      _ => return Err(Error::BadMetadataOpCode),
+      i => return Err(Error::BadMetadataOpCode(i)),
     }
     Ok(())
   }
@@ -256,26 +236,37 @@ impl<'input> Runtime<'input> {
       83 => Instruction::JumpRelativeOffset,                               // JumpRelativeOffset
       84 => Instruction::JumpZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpZero
       85 => Instruction::JumpNonZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpNonZero
-      _ => return Err(Error::BadInstructionOpCode),
+      86 => Instruction::SetPaint,
+      87 => Instruction::GetPaint,
+      i => return Err(Error::BadInstructionOpCode(i)),
     };
     elem.code.push(instr);
     Ok(())
   }
 
   pub fn load_from_reader<R: ReadBytesExt>(&mut self, r: &mut R) -> Result<Const, Error> {
-    if r.read_u32::<BigEndian>()? != MAGIC_NUMBER {
-      return Err(Error::WrongMagicNumber);
+    if let v = r.read_u32::<BigEndian>()? {
+      if v != MAGIC_NUMBER {
+        return Err(Error::BadMagicNumber(v));
+      }
     }
-    if r.read_u16::<BigEndian>()? != Self::MINOR_VERSION {
-      return Err(Error::WrongMinorVersion);
+    if let v = r.read_u16::<BigEndian>()? {
+      if v != Self::MINOR_VERSION {
+        return Err(Error::BadMinorVersion(v));
+      }
     }
-    if r.read_u16::<BigEndian>()? != Self::MAJOR_VERSION {
-      return Err(Error::WrongMajorVersion);
+    if let v = r.read_u16::<BigEndian>()? {
+      if v != Self::MAJOR_VERSION {
+        return Err(Error::BadMajorVersion(v));
+      }
     }
     let tag = Self::read_string(r)?;
-    if self.tag.is_some() {
-      if self.tag.as_ref() != Some(&tag) {
-        return Err(Error::TagMismatch);
+    if let Some(self_tag) = self.tag.as_ref() {
+      if self_tag != &tag {
+        return Err(Error::BuildTagMismatch {
+          want: self_tag.to_owned(),
+          got: tag.to_owned(),
+        });
       }
     } else {
       self.tag = Some(tag);
@@ -304,7 +295,7 @@ impl<'input> Runtime<'input> {
     let my_elem = self
       .element_map
       .get(&my_type)
-      .ok_or(Error::UnknownElement)?;
+      .ok_or(Error::UnknownElement(my_type))?;
     let mut cursor = Cursor::new();
     while (cursor.ip as usize) < my_elem.code.len() {
       match my_elem.code[cursor.ip as usize] {

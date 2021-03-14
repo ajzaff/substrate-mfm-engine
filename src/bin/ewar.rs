@@ -120,6 +120,7 @@ fn ewar_main(args: &Cli) {
     .load_from_reader(&mut r)
     .expect("Failed to process input file");
 
-  let mut ew = EventWindow::new_with(atom);
+  let mut ew = EventWindow::new_with_const(atom);
   runtime.execute(&mut ew).expect("Failed to execute");
+  println!("{}", ew);
 }

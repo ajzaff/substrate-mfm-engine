@@ -1,4 +1,5 @@
 pub mod arith;
+pub mod color;
 
 use bitflags::bitflags;
 use std::fmt;
