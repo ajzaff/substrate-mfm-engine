@@ -33,7 +33,7 @@ impl Metadata {
             radius: 0,
             fg_color: 0xffffffffu32.into(),
             bg_color: 0u32.into(),
-            symmetries: base::Symmetries::R000L,
+            symmetries: 0.into(),
             field_map: HashMap::new(),
             parameter_map: HashMap::new(),
         }
@@ -66,6 +66,10 @@ impl<'input> EventWindow<'input> {
 
     pub fn get_mut(&mut self, i: usize) -> Option<&mut Const> {
         self.data.get_mut(i)
+    }
+
+    pub fn swap(&mut self, i: usize, j: usize) {
+        self.data.swap(i, j);
     }
 
     pub fn get_paint(&self, i: usize) -> Option<&color::Color> {

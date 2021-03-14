@@ -94,7 +94,7 @@ impl<'input> Runtime<'input> {
     let mut m = HashMap::new();
     let mut empty = Metadata::new();
     empty.name = "Empty".to_owned();
-    empty.fg_color = 0u32.into();
+    empty.symbol = ".".to_owned();
     m.insert(0, empty);
     m
   }
@@ -307,7 +307,11 @@ impl<'input> Runtime<'input> {
       match code[cursor.ip as usize] {
         Instruction::Nop => {}
         Instruction::Exit => break,
-        Instruction::SwapSites => todo!(),
+        Instruction::SwapSites => {
+          let j = cursor.op_stack.pop().unwrap().as_u128() as usize;
+          let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
+          ew.swap(i, j);
+        }
         Instruction::SetSite => {
           let c = cursor.op_stack.pop().unwrap();
           let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
@@ -322,8 +326,11 @@ impl<'input> Runtime<'input> {
           cursor.op_stack.push(v);
         }
         Instruction::GetField(_) => todo!(),
-        Instruction::GetSiteField(_) => todo!(),
-        Instruction::GetType(_) => todo!(),
+        Instruction::GetSiteField(f) => {
+          let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
+          cursor.op_stack.push(ew.get(i).unwrap().apply(*f.runtime()));
+        }
+        Instruction::GetType(x) => cursor.op_stack.push((*x.runtime()).into()),
         Instruction::GetParameter(_) => todo!(),
         Instruction::Scan => todo!(),
         Instruction::SaveSymmetries => cursor.symmetries_stack.push(cursor.symmetries),
