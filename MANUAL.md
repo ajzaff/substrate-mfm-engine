@@ -108,9 +108,9 @@ Symmetries affect what a site number refers to. Namely one of the valid rotation
 A label is represented by label name and a `:`.
 
 ```
-  copy R0 1
+  push 1
 loop:
-  add R0 R0
+  add 1
   jump loop
 ```
 
