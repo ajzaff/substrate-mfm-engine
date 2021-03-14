@@ -165,10 +165,12 @@ pub enum Instruction<'input> {
     JumpRelativeOffset,
     JumpZero(Arg<&'input str, u16>),
     JumpNonZero(Arg<&'input str, u16>),
+    SetPaint,
+    GetPaint,
 }
 
 impl Instruction<'_> {
-    pub const MAX: u8 = 85;
+    pub const MAX: u8 = 87;
 
     pub fn as_u8(&self) -> u8 {
         match self {
@@ -258,6 +260,8 @@ impl Instruction<'_> {
             Self::JumpRelativeOffset => 83,
             Self::JumpZero(_) => 84,
             Self::JumpNonZero(_) => 85,
+            Self::SetPaint => 86,
+            Self::GetPaint => 87,
         }
     }
 }

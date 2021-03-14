@@ -279,6 +279,7 @@ impl Compiler {
             Instruction::JumpRelativeOffset => Ok(()),
             Instruction::JumpZero(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
             Instruction::JumpNonZero(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
+            Instruction::SetPaint | Instruction::GetPaint => Ok(()),
         }
         .map_err(|x| x.into())
     }

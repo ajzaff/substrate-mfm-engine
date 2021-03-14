@@ -206,3 +206,5 @@ Numbered arguments presented in reverse-polish come from the stack. Named argume
 |`[0] jumprelativeoffset`|Jump unconditionally a number of instructions forward or backward specified by `[0]` (signed).|
 |`[0] jumpzero [LABEL]`|Jump to `[LABEL]` iff `[0] == 0`.|
 |`[0] jumpnonzero [LABEL]`|Jump to `[LABEL]` iff `[0] != 0`.|
+|`[0] setpaint`|Set the paint at this site to the 32-bit color `[0]`.|
+|`getpaint`|Get the paint at this site.|

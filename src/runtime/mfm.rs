@@ -37,12 +37,14 @@ impl Metadata {
 
 pub struct EventWindow {
   data: [Const; 41],
+  paint: [u32; 41],
 }
 
 impl EventWindow {
   pub fn new() -> Self {
     Self {
       data: [0u128.into(); 41],
+      paint: [0; 41],
     }
   }
 
@@ -52,5 +54,13 @@ impl EventWindow {
 
   pub fn get_mut(&mut self, i: usize) -> Option<&mut Const> {
     self.data.get_mut(i)
+  }
+
+  pub fn get_paint(&self, i: usize) -> Option<&u32> {
+    self.paint.get(i)
+  }
+
+  pub fn get_paint_mut(&mut self, i: usize) -> Option<&mut u32> {
+    self.paint.get_mut(i)
   }
 }

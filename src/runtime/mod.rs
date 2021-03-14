@@ -459,6 +459,8 @@ impl<'input> Runtime<'input> {
         Instruction::JumpRelativeOffset => todo!(),
         Instruction::JumpZero(x) => cursor.ip = *x.runtime() as usize,
         Instruction::JumpNonZero(x) => cursor.ip = *x.runtime() as usize,
+        Instruction::SetPaint => todo!(),
+        Instruction::GetPaint => todo!(),
       }
     }
     Ok(())
