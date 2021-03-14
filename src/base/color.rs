@@ -19,6 +19,14 @@ impl Color {
   pub fn bits(&self) -> u32 {
     return self.0;
   }
+
+  pub fn components(&self) -> (u8, u8, u8) {
+    return (
+      ((self.0 & 0xff000000) >> 24) as u8,
+      ((self.0 & 0xff0000) >> 16) as u8,
+      ((self.0 & 0xff00) >> 8) as u8,
+    );
+  }
 }
 
 #[derive(Debug, Clone, thiserror::Error)]

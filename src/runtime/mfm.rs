@@ -1,6 +1,8 @@
 use crate::base;
 use crate::base::arith::Const;
-use crate::base::color::Color;
+use crate::base::color;
+use crate::base::FieldSelector;
+use colored::*;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fmt;
@@ -13,8 +15,8 @@ pub struct Metadata {
     pub authors: Vec<String>,
     pub licenses: Vec<String>,
     pub radius: u8,
-    pub bg_color: String,
-    pub fg_color: String,
+    pub bg_color: color::Color,
+    pub fg_color: color::Color,
     pub symmetries: base::Symmetries,
     pub field_map: HashMap<String, base::FieldSelector>,
     pub parameter_map: HashMap<String, Const>,
@@ -29,8 +31,8 @@ impl Metadata {
             authors: Vec::new(),
             licenses: Vec::new(),
             radius: 0,
-            bg_color: "".to_string(),
-            fg_color: "".to_string(),
+            fg_color: 0xffffffffu32.into(),
+            bg_color: 0u32.into(),
             symmetries: base::Symmetries::R000L,
             field_map: HashMap::new(),
             parameter_map: HashMap::new(),
@@ -39,25 +41,23 @@ impl Metadata {
 }
 
 #[derive(Debug)]
-pub struct EventWindow<'a> {
+pub struct EventWindow<'input> {
     data: [Const; 41],
-    paint: [Color; 41],
-    type_data: Option<&'a HashMap<u16, Metadata>>,
+    paint: [color::Color; 41],
+    type_map: Option<&'input HashMap<u16, Metadata>>,
 }
 
-impl<'a> EventWindow<'a> {
-    pub fn new_with_const(x: Const) -> Self {
-        let mut ew = Self::new();
-        ew.data[0] = x;
-        ew
-    }
-
+impl<'input> EventWindow<'input> {
     pub fn new() -> Self {
         Self {
             data: [0u128.into(); 41],
-            paint: [0.into(); 41],
-            type_data: None,
+            paint: [0u32.into(); 41],
+            type_map: None,
         }
+    }
+
+    pub fn set_type_map(&mut self, type_map: &'input HashMap<u16, Metadata>) {
+        self.type_map = Some(type_map)
     }
 
     pub fn get(&self, i: usize) -> Option<&Const> {
@@ -68,11 +68,11 @@ impl<'a> EventWindow<'a> {
         self.data.get_mut(i)
     }
 
-    pub fn get_paint(&self, i: usize) -> Option<&Color> {
+    pub fn get_paint(&self, i: usize) -> Option<&color::Color> {
         self.paint.get(i)
     }
 
-    pub fn get_paint_mut(&mut self, i: usize) -> Option<&mut Color> {
+    pub fn get_paint_mut(&mut self, i: usize) -> Option<&mut color::Color> {
         self.paint.get_mut(i)
     }
 }
@@ -80,6 +80,7 @@ impl<'a> EventWindow<'a> {
 const VOID: char = ' ';
 const EMPTY: char = '.';
 const OCCUPIED: char = 'x';
+const UNKNOWN: char = '?';
 
 impl fmt::Display for EventWindow<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -100,10 +101,28 @@ impl fmt::Display for EventWindow<'_> {
                 }
                 for _ in 0..2 * $cols + 1 {
                     if let Some(x) = self.data.get(INDICES[idx]) {
-                        if x.as_u128() == 0u128 {
-                            s.push(EMPTY);
+                        if let Some(type_map) = self.type_map {
+                            let typ = x.apply(FieldSelector::TYPE);
+                            let meta = type_map.get(&(typ.as_u128() as u16));
+                            if let Some(meta) = meta {
+                                let (r, g, b) = meta.fg_color.components();
+                                let (b_r, b_g, b_b) = meta.bg_color.components();
+                                s.push_str(
+                                    format!(
+                                        "{}",
+                                        meta.symbol.truecolor(r, g, b).on_truecolor(b_r, b_g, b_b)
+                                    )
+                                    .as_str(),
+                                );
+                            } else {
+                                s.push(UNKNOWN);
+                            }
                         } else {
-                            s.push(OCCUPIED);
+                            if x.is_zero() {
+                                s.push(EMPTY);
+                            } else {
+                                s.push(OCCUPIED);
+                            }
                         }
                     }
                     idx += 1;

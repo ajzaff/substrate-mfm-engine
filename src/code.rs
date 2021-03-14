@@ -1,12 +1,14 @@
 use crate::ast::{Instruction, Metadata, Node};
 use crate::base;
 use crate::base::arith::Const;
+use crate::base::color::{Color, ParseColorError};
 use byteorder::BigEndian;
 use byteorder::WriteBytesExt;
 use lalrpop_util;
 use lalrpop_util::lalrpop_mod;
 use std::collections::HashMap;
 use std::io;
+use std::str::FromStr;
 use thiserror;
 
 lalrpop_mod!(pub substrate); // syntesized by LALRPOP
@@ -17,6 +19,8 @@ pub enum CompileError<'input> {
     IOError(#[from] io::Error),
     #[error("parse error")]
     ParseError(lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>),
+    #[error("parse color error")]
+    ParseColorError(#[from] ParseColorError),
     #[error("internal error")]
     InternalError,
     #[error("unexpected node type")]
@@ -158,8 +162,12 @@ impl Compiler {
             Metadata::Author(x) => Self::write_string(w, x),
             Metadata::License(x) => Self::write_string(w, x),
             Metadata::Radius(x) => w.write_u8(x).map_err(|x| x.into()),
-            Metadata::BgColor(x) => Self::write_string(w, x),
-            Metadata::FgColor(x) => Self::write_string(w, x),
+            Metadata::BgColor(x) => w
+                .write_u32::<BigEndian>(Color::from_str(x)?.bits())
+                .map_err(|x| x.into()),
+            Metadata::FgColor(x) => w
+                .write_u32::<BigEndian>(Color::from_str(x)?.bits())
+                .map_err(|x| x.into()),
             Metadata::Symmetries(x) => w.write_u8(x.bits() as u8).map_err(|x| x.into()),
             Metadata::Field(i, f) => {
                 Self::write_string(w, i)?;

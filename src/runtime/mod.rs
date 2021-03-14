@@ -3,6 +3,7 @@ pub mod mfm;
 use crate::ast::{Arg, Instruction};
 use crate::base::arith::Const;
 use crate::base::{FieldSelector, Symmetries};
+use crate::runtime::mfm::Metadata;
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use std::collections::HashMap;
@@ -43,21 +44,6 @@ pub fn load_from_bytes<'input>(bytes: &'input mut &[u8]) -> Result<Runtime<'inpu
 
 const MAGIC_NUMBER: u32 = 0x02030741;
 
-#[derive(Clone, Debug)]
-struct Element<'input> {
-  metadata: mfm::Metadata,
-  code: Vec<Instruction<'input>>,
-}
-
-impl Element<'_> {
-  fn new() -> Self {
-    Self {
-      metadata: mfm::Metadata::new(),
-      code: Vec::new(),
-    }
-  }
-}
-
 #[derive(Debug)]
 struct Cursor {
   ip: usize,
@@ -88,7 +74,8 @@ impl Cursor {
 
 pub struct Runtime<'input> {
   tag: Option<String>,
-  element_map: HashMap<u16, Element<'input>>,
+  pub code_map: HashMap<u16, Vec<Instruction<'input>>>,
+  pub type_map: HashMap<u16, Metadata>,
 }
 
 impl<'input> Runtime<'input> {
@@ -98,15 +85,23 @@ impl<'input> Runtime<'input> {
   pub fn new() -> Self {
     Self {
       tag: None,
-      element_map: Self::new_element_map(),
+      type_map: Self::new_type_map(),
+      code_map: Self::new_code_map(),
     }
   }
 
-  fn new_element_map() -> HashMap<u16, Element<'input>> {
+  fn new_type_map() -> HashMap<u16, Metadata> {
     let mut m = HashMap::new();
-    let mut empty = Element::new();
-    empty.metadata.name = "Empty".to_owned();
+    let mut empty = Metadata::new();
+    empty.name = "Empty".to_owned();
+    empty.fg_color = 0u32.into();
     m.insert(0, empty);
+    m
+  }
+
+  fn new_code_map() -> HashMap<u16, Vec<Instruction<'input>>> {
+    let mut m = HashMap::new();
+    m.insert(0, vec![]);
     m
   }
 
@@ -121,36 +116,39 @@ impl<'input> Runtime<'input> {
     Ok(String::from_utf8(b)?)
   }
 
-  fn read_metadata<R: ReadBytesExt>(r: &mut R, elem: &mut Element) -> Result<(), Error> {
+  fn read_metadata<R: ReadBytesExt>(r: &mut R, elem: &mut Metadata) -> Result<(), Error> {
     let op = r.read_u8()?;
     match op {
-      0 => elem.metadata.name = Self::read_string(r)?, // Name
-      1 => elem.metadata.symbol = Self::read_string(r)?, // Symbol
-      2 => elem.metadata.descs.push(Self::read_string(r)?), // Desc
-      3 => elem.metadata.authors.push(Self::read_string(r)?), // Author
-      4 => elem.metadata.licenses.push(Self::read_string(r)?), // License
-      5 => elem.metadata.radius = r.read_u8()?,        // Radius
-      6 => elem.metadata.bg_color = Self::read_string(r)?, // BgColor
-      7 => elem.metadata.fg_color = Self::read_string(r)?, // FgColor
-      8 => elem.metadata.symmetries = r.read_u8()?.into(), // Symmetries
+      0 => elem.name = Self::read_string(r)?,         // Name
+      1 => elem.symbol = Self::read_string(r)?,       // Symbol
+      2 => elem.descs.push(Self::read_string(r)?),    // Desc
+      3 => elem.authors.push(Self::read_string(r)?),  // Author
+      4 => elem.licenses.push(Self::read_string(r)?), // License
+      5 => elem.radius = r.read_u8()?,                // Radius
+      6 => elem.bg_color = r.read_u32::<BigEndian>()?.into(), // BgColor
+      7 => elem.fg_color = r.read_u32::<BigEndian>()?.into(), // FgColor
+      8 => elem.symmetries = r.read_u8()?.into(),     // Symmetries
       9 => {
         // Field
         let i = Self::read_string(r)?;
         let f: FieldSelector = r.read_u16::<BigEndian>()?.into();
-        elem.metadata.field_map.insert(i, f);
+        elem.field_map.insert(i, f);
       }
       10 => {
         // Parameter
         let i = Self::read_string(r)?;
         let c = Self::read_const(r)?;
-        elem.metadata.parameter_map.insert(i, c);
+        elem.parameter_map.insert(i, c);
       }
       i => return Err(Error::BadMetadataOpCode(i)),
     }
     Ok(())
   }
 
-  fn read_instruction<R: ReadBytesExt>(r: &mut R, elem: &mut Element) -> Result<(), Error> {
+  fn read_instruction<R: ReadBytesExt>(
+    r: &mut R,
+    code: &mut Vec<Instruction<'input>>,
+  ) -> Result<(), Error> {
     let op = r.read_u8()?;
     let instr = match op {
       0 => Instruction::Nop,       // Nop
@@ -243,7 +241,7 @@ impl<'input> Runtime<'input> {
       87 => Instruction::GetPaint,
       i => return Err(Error::BadInstructionOpCode(i)),
     };
-    elem.code.push(instr);
+    code.push(instr);
     Ok(())
   }
 
@@ -276,32 +274,37 @@ impl<'input> Runtime<'input> {
     }
 
     let type_num = r.read_u16::<BigEndian>()?;
-    let mut elem = Element::new();
+    let mut elem = Metadata::new();
 
     for _ in 0..r.read_u8()? {
       Self::read_metadata(r, &mut elem)?;
     }
 
+    let mut code = Vec::new();
+
     r.read_u16::<BigEndian>()?; // Code index stub
 
     for _ in 0..r.read_u16::<BigEndian>()? {
-      Self::read_instruction(r, &mut elem)?;
+      Self::read_instruction(r, &mut code)?;
     }
 
-    self.element_map.insert(type_num, elem);
+    self.type_map.insert(type_num, elem);
+    self.code_map.insert(type_num, code);
     Ok(((type_num as u128) << 80).into())
   }
 
-  pub fn execute(&mut self, ew: &mut mfm::EventWindow) -> Result<(), Error> {
+  pub fn execute(
+    ew: &mut mfm::EventWindow,
+    code_map: HashMap<u16, Vec<Instruction<'input>>>,
+  ) -> Result<(), Error> {
     let my_atom = ew.get(0).ok_or(Error::NoElement)?;
     let my_type = my_atom.apply(FieldSelector::TYPE).as_u128() as u16;
-    let my_elem = self
-      .element_map
+    let code = code_map
       .get(&my_type)
       .ok_or(Error::UnknownElement(my_type))?;
     let mut cursor = Cursor::new();
-    while (cursor.ip as usize) < my_elem.code.len() {
-      match my_elem.code[cursor.ip as usize] {
+    while (cursor.ip as usize) < code.len() {
+      match code[cursor.ip as usize] {
         Instruction::Nop => {}
         Instruction::Exit => break,
         Instruction::SwapSites => todo!(),
