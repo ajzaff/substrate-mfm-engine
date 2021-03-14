@@ -43,7 +43,8 @@ fn main() {
 }
 
 fn ewac_main(args: &Cli) {
-    let is_pipe = args.output_dir == Some("-".to_string()) || !atty::is(Stream::Stdout);
+    let is_explicit_stdout = args.output_dir == Some("-".to_string());
+    let is_pipe = is_explicit_stdout || (args.output_dir.is_none() && !atty::is(Stream::Stdout));
     if is_pipe && args.input.len() != 1 {
         eprintln!("Pipes are only supported with one input file.");
         exit(1);
@@ -57,7 +58,9 @@ fn ewac_main(args: &Cli) {
     let curr_dir = env::current_dir().expect("Could not get current directory");
     let output_dir = if let Some(dir) = args.output_dir.as_ref() {
         let d = Path::new::<String>(&dir);
-        fs::create_dir_all(d).expect("Failed to create target directory");
+        if !is_explicit_stdout {
+            fs::create_dir_all(d).expect("Failed to create target directory");
+        }
         d
     } else {
         let path = curr_dir

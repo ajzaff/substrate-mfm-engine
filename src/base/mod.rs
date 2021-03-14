@@ -49,7 +49,6 @@ impl From<u16> for FieldSelector {
 
 bitflags! {
   pub struct Symmetries: u8 {
-    const NONE  = 0x0;
     const R000L = 0x1; // Normal.
     const R090L = 0x2;
     const R180L = 0x4; // Flip_XY.
@@ -58,7 +57,6 @@ bitflags! {
     const R090R = 0x20; // Flip_X.
     const R180R = 0x40;
     const R270R = 0x80;
-    const ALL   = 0xff;
   }
 }
 
@@ -66,7 +64,7 @@ impl FromStr for Symmetries {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "NONE" => Ok(Symmetries::NONE),
+            "NONE" => Ok(0.into()),
             "R000L" => Ok(Symmetries::R000L),
             "R090L" => Ok(Symmetries::R090L),
             "R180L" => Ok(Symmetries::R180L),
@@ -75,7 +73,7 @@ impl FromStr for Symmetries {
             "R090R" => Ok(Symmetries::R090R),
             "R180R" => Ok(Symmetries::R180R),
             "R270R" => Ok(Symmetries::R270R),
-            "ALL" => Ok(Symmetries::ALL),
+            "ALL" => Ok(0xff.into()),
             _ => Err(()),
         }
     }

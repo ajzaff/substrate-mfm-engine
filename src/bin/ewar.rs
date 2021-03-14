@@ -116,10 +116,10 @@ fn ewar_main(args: &Cli) {
 
   let mut file = File::open(Path::new::<String>(&args.input)).expect("Failed to open input file");
   let mut r = BufReader::new(&mut file);
-  runtime
+  let atom = runtime
     .load_from_reader(&mut r)
     .expect("Failed to process input file");
 
-  let mut ew = EventWindow::new();
+  let mut ew = EventWindow::new_with(atom);
   runtime.execute(&mut ew).expect("Failed to execute");
 }

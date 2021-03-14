@@ -41,6 +41,12 @@ pub struct EventWindow {
 }
 
 impl EventWindow {
+  pub fn new_with(x: Const) -> Self {
+    let mut ew = Self::new();
+    ew.data[0] = x;
+    ew
+  }
+
   pub fn new() -> Self {
     Self {
       data: [0u128.into(); 41],

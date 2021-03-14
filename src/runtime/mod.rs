@@ -61,6 +61,7 @@ pub fn load_from_bytes<'input>(bytes: &'input mut &[u8]) -> Result<Runtime<'inpu
 
 const MAGIC_NUMBER: u32 = 0x02030741;
 
+#[derive(Clone, Debug)]
 struct Element<'input> {
   metadata: mfm::Metadata,
   code: Vec<Instruction<'input>>,
@@ -131,7 +132,7 @@ impl<'input> Runtime<'input> {
   }
 
   fn read_string<R: ReadBytesExt>(r: &mut R) -> Result<String, Error> {
-    let n = r.read_u16::<BigEndian>()?;
+    let n = r.read_u8()?;
     let mut b = vec![0u8; n as usize];
     r.read_exact(&mut b)?;
     Ok(String::from_utf8(b)?)
@@ -261,7 +262,7 @@ impl<'input> Runtime<'input> {
     Ok(())
   }
 
-  pub fn load_from_reader<R: ReadBytesExt>(&mut self, r: &mut R) -> Result<(), Error> {
+  pub fn load_from_reader<R: ReadBytesExt>(&mut self, r: &mut R) -> Result<Const, Error> {
     if r.read_u32::<BigEndian>()? != MAGIC_NUMBER {
       return Err(Error::WrongMagicNumber);
     }
@@ -287,15 +288,17 @@ impl<'input> Runtime<'input> {
       Self::read_metadata(r, &mut elem)?;
     }
 
+    r.read_u16::<BigEndian>()?; // Code index stub
+
     for _ in 0..r.read_u16::<BigEndian>()? {
       Self::read_instruction(r, &mut elem)?;
     }
 
     self.element_map.insert(type_num, elem);
-    Ok(())
+    Ok(((type_num as u128) << 80).into())
   }
 
-  pub fn execute(&mut self, ew: &mfm::EventWindow) -> Result<(), Error> {
+  pub fn execute(&mut self, ew: &mut mfm::EventWindow) -> Result<(), Error> {
     let my_atom = ew.get(0).ok_or(Error::NoElement)?;
     let my_type = my_atom.apply(FieldSelector::TYPE).as_u128() as u16;
     let my_elem = self
@@ -308,10 +311,19 @@ impl<'input> Runtime<'input> {
         Instruction::Nop => {}
         Instruction::Exit => break,
         Instruction::SwapSites => todo!(),
-        Instruction::SetSite => todo!(),
+        Instruction::SetSite => {
+          let c = cursor.op_stack.pop().unwrap();
+          let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
+          *ew.get_mut(i).unwrap() = c;
+        }
         Instruction::SetField(_) => todo!(),
         Instruction::SetSiteField(_) => todo!(),
-        Instruction::GetSite => todo!(),
+        Instruction::GetSite => {
+          let v = *ew
+            .get(cursor.op_stack.pop().unwrap().as_u128() as usize)
+            .unwrap();
+          cursor.op_stack.push(v);
+        }
         Instruction::GetField(_) => todo!(),
         Instruction::GetSiteField(_) => todo!(),
         Instruction::GetType(_) => todo!(),
@@ -462,6 +474,7 @@ impl<'input> Runtime<'input> {
         Instruction::SetPaint => todo!(),
         Instruction::GetPaint => todo!(),
       }
+      cursor.ip += 1;
     }
     Ok(())
   }
