@@ -5,7 +5,7 @@
 .author "Dave Ackley"
 .author "Alan Zaffetti"
 .license "GPL-2.0-or-later"
-.symmetries ALL
+.symmetries NONE
 .radius 1
 
     push40           /* [i:=40] */
