@@ -110,7 +110,8 @@ A label is represented by label name and a `:`.
 ```
   push 1
 loop:
-  add 1
+  push 1
+  add
   jump loop
 ```
 
@@ -121,7 +122,8 @@ A label at the end of the program is often provided, conventionally called `exit
 ```
   // ...
   jumpnonzero exit
-  sub 1
+  push 1
+  sub
 exit:
   // program ends
 ```
