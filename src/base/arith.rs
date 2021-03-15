@@ -1,8 +1,9 @@
 use crate::base::FieldSelector;
+use std::cmp::{Eq, Ordering};
 use std::num::ParseIntError;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug)]
 pub enum Const {
     Unsigned(u128),
     Signed(i128),
@@ -315,5 +316,61 @@ impl BitXor for Const {
             Self::Unsigned(x) => Self::Unsigned(x ^ rhs.as_u128_bits()),
             Self::Signed(x) => Self::Signed((x as u128 ^ rhs.as_u128_bits()) as i128),
         }
+    }
+}
+
+impl PartialEq for Const {
+    fn eq(&self, rhs: &Self) -> bool {
+        match self {
+            Self::Unsigned(x) => {
+                if rhs.is_neg() {
+                    false
+                } else {
+                    *x == rhs.as_u128_bits()
+                }
+            }
+            Self::Signed(x) => match rhs {
+                Self::Unsigned(y) => {
+                    if *x < 0 {
+                        false
+                    } else {
+                        *x as u128 == *y
+                    }
+                }
+                Self::Signed(y) => *x == *y,
+            },
+        }
+    }
+}
+
+impl Eq for Const {}
+
+impl Ord for Const {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self {
+            Self::Unsigned(x) => {
+                if other.is_neg() {
+                    Ordering::Greater
+                } else {
+                    x.cmp(&other.as_u128_bits())
+                }
+            }
+            Self::Signed(x) => match other {
+                Self::Unsigned(y) => {
+                    if *x < 0 {
+                        Ordering::Less
+                    } else {
+                        (*x as u128).cmp(y)
+                    }
+                }
+                Self::Signed(y) => x.cmp(y),
+            },
+        }
+    }
+}
+
+impl PartialOrd for Const {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }

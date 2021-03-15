@@ -128,7 +128,12 @@ impl Compiler {
         Ok(())
     }
 
+    /// write the type and value of a U96 constant.
     fn write_u96<W: WriteBytesExt>(w: &mut W, x: Const) -> Result<(), io::Error> {
+        match x {
+            Const::Unsigned(_) => w.write_u8(0)?,
+            Const::Signed(_) => w.write_u8(1)?,
+        }
         w.write_u32::<BigEndian>((x >> 64).into())?;
         w.write_u64::<BigEndian>(x.into())
     }

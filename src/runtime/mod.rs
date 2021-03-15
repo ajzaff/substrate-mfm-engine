@@ -27,6 +27,8 @@ pub enum Error {
   BuildTagMismatch { want: String, got: String },
   #[error("bad metadata op code: {0}")]
   BadMetadataOpCode(u8),
+  #[error("bad constant type: {0}")]
+  BadConstantType(u8),
   #[error("bad instruction op code: {0}")]
   BadInstructionOpCode(u8),
   #[error("no element")]
@@ -107,7 +109,21 @@ impl<'input> Runtime<'input> {
   }
 
   fn read_const<R: ReadBytesExt>(r: &mut R) -> Result<Const, Error> {
-    todo!()
+    match r.read_u8()? {
+      0 => {
+        let mut n: u128 = r.read_u32::<BigEndian>()? as u128;
+        n <<= 64;
+        n |= r.read_u64::<BigEndian>()? as u128;
+        Ok(n.into())
+      }
+      1 => {
+        let mut n: i128 = r.read_i32::<BigEndian>()? as i128;
+        n <<= 64;
+        n |= r.read_i64::<BigEndian>()? as i128;
+        Ok(n.into())
+      }
+      i => Err(Error::BadConstantType(i)),
+    }
   }
 
   fn read_string<R: ReadBytesExt>(r: &mut R) -> Result<String, Error> {
@@ -307,9 +323,27 @@ impl<'input> Runtime<'input> {
       .get(&my_type)
       .ok_or(Error::UnknownElement(my_type))?;
     let mut cursor = Cursor::new();
-    while (cursor.ip as usize) < code.len() {
-      trace!("{:?}", cursor);
-      match code[cursor.ip as usize] {
+    loop {
+      if cursor.ip >= code.len() {
+        // Handle implicit Ret:
+        while let Some(mut ip) = cursor.call_stack.pop() {
+          if ip == u16::MAX as usize {
+            continue;
+          }
+          ip += 1;
+          if ip >= code.len() {
+            continue;
+          }
+          cursor.ip = ip;
+          break;
+        }
+        if cursor.ip >= code.len() {
+          break;
+        }
+      }
+      let op = code[cursor.ip];
+      trace!("{:?} => {:?}", cursor, op);
+      match op {
         Instruction::Nop => {}
         Instruction::Exit => break,
         Instruction::SwapSites => {
@@ -334,7 +368,9 @@ impl<'input> Runtime<'input> {
           cursor.op_stack.push(ew.get(i).unwrap().apply(*f.runtime()));
         }
         Instruction::GetType(x) => cursor.op_stack.push((*x.runtime()).into()),
-        Instruction::GetParameter(_) => todo!(),
+        Instruction::GetParameter(c) => {
+          cursor.op_stack.push(*c.runtime());
+        }
         Instruction::Scan => todo!(),
         Instruction::SaveSymmetries => cursor.symmetries_stack.push(cursor.symmetries),
         Instruction::UseSymmetries(x) => cursor.symmetries = x,
@@ -410,8 +446,16 @@ impl<'input> Runtime<'input> {
         Instruction::Call(x) => {
           cursor.call_stack.push(cursor.ip);
           cursor.ip = *x.runtime() as usize;
+          continue;
         }
-        Instruction::Ret => cursor.ip = cursor.call_stack.pop().unwrap(),
+        Instruction::Ret => {
+          cursor.ip = cursor.call_stack.pop().unwrap();
+          if cursor.ip == u16::MAX as usize {
+            break;
+          }
+          cursor.ip += 1;
+          continue;
+        }
         Instruction::Checksum => todo!(),
         Instruction::Add => {
           let b = cursor.op_stack.pop().unwrap();
