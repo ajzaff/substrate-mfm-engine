@@ -18,6 +18,5 @@ kill:
     push1            /* [i,1] */
     sub              /* [i-1] */
     dup              /* [i-1,i-1] */
-    jumpzero quit    /* [i-1] */
-    jump loop
+    jumpnonzero loop /* [i-1] */
 quit:

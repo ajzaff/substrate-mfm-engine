@@ -13,8 +13,8 @@
   push1
   getsitefield type  /* #1$type */
   equal              /* #1$type == %Empty */
-  jumpzero end
+  jumpzero quit
   push0
   push1
   swapsites          /* swap(#0, #1) */
-end:
+quit:

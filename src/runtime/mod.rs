@@ -2,11 +2,11 @@ pub mod mfm;
 
 use crate::ast::{Arg, Instruction};
 use crate::base::arith::Const;
-use crate::base::color::Color;
 use crate::base::{FieldSelector, Symmetries};
 use crate::runtime::mfm::Metadata;
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
+use log::trace;
 use std::collections::HashMap;
 use std::io;
 use thiserror;
@@ -305,6 +305,7 @@ impl<'input> Runtime<'input> {
       .ok_or(Error::UnknownElement(my_type))?;
     let mut cursor = Cursor::new();
     while (cursor.ip as usize) < code.len() {
+      trace!("{:?}", cursor);
       match code[cursor.ip as usize] {
         Instruction::Nop => {}
         Instruction::Exit => break,
@@ -480,7 +481,17 @@ impl<'input> Runtime<'input> {
           cursor.ip = *x.runtime() as usize;
           continue;
         }
-        Instruction::JumpRelativeOffset => todo!(),
+        Instruction::JumpRelativeOffset => {
+          let a = cursor.op_stack.pop().unwrap();
+          match a {
+            Const::Unsigned(x) => cursor.ip += x as usize,
+            Const::Signed(_) => {
+              let amount: usize = a.abs_saturating().into();
+              cursor.ip -= amount;
+            }
+          }
+          break;
+        }
         Instruction::JumpZero(x) => {
           if cursor.op_stack.pop().unwrap().is_zero() {
             cursor.ip = *x.runtime() as usize;

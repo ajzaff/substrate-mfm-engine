@@ -13,6 +13,7 @@ use clap::arg_enum;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use stderrlog;
 use structopt::StructOpt;
 
 arg_enum! {
@@ -104,10 +105,29 @@ struct Cli {
     default_value = "color",
   )]
   color: ColorMode,
+
+  #[structopt(short = "q", long = "quiet", help = "Silence logging output.")]
+  quiet: bool,
+
+  #[structopt(
+    short = "v",
+    long = "verbose",
+    help = "Configure logging verbosity",
+    parse(from_occurrences)
+  )]
+  verbose: usize,
+
+  #[structopt(long = "checksum", help = "Perform checksums on output states.")]
+  checksum: bool,
 }
 
 fn main() {
   let args = Cli::from_args();
+  stderrlog::new()
+    .quiet(args.quiet)
+    .verbosity(args.verbose)
+    .init()
+    .unwrap();
   ewar_main(&args);
 }
 

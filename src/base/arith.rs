@@ -50,14 +50,6 @@ impl Const {
         }
     }
 
-    fn neg_saturating(x: i128) -> i128 {
-        if x == i128::MIN {
-            i128::MAX
-        } else {
-            -x
-        }
-    }
-
     fn i128_saturating(x: u128) -> i128 {
         if x > i128::MAX as u128 {
             i128::MAX
@@ -70,6 +62,19 @@ impl Const {
         match self {
             Self::Unsigned(x) => Self::i128_saturating(*x),
             Self::Signed(x) => *x,
+        }
+    }
+
+    pub fn abs_saturating(&self) -> Const {
+        match self {
+            Self::Unsigned(_) => *self,
+            Self::Signed(x) => {
+                if *x < 0 {
+                    0i128.saturating_sub(*x).into()
+                } else {
+                    (*x).into()
+                }
+            }
         }
     }
 
@@ -126,6 +131,13 @@ macro_rules! from_numeric_uimpl {
     };
 }
 
+from_numeric_uimpl!(u8);
+from_numeric_uimpl!(u16);
+from_numeric_uimpl!(u32);
+from_numeric_uimpl!(u64);
+from_numeric_uimpl!(usize);
+from_numeric_uimpl!(u128);
+
 macro_rules! from_numeric_simpl {
     ($i:ident) => {
         impl From<$i> for Const {
@@ -135,13 +147,6 @@ macro_rules! from_numeric_simpl {
         }
     };
 }
-
-from_numeric_uimpl!(u8);
-from_numeric_uimpl!(u16);
-from_numeric_uimpl!(u32);
-from_numeric_uimpl!(u64);
-from_numeric_uimpl!(usize);
-from_numeric_uimpl!(u128);
 
 from_numeric_simpl!(i8);
 from_numeric_simpl!(i16);
@@ -252,8 +257,8 @@ impl Neg for Const {
 
     fn neg(self) -> Self {
         match self {
-            Self::Unsigned(x) => Self::Signed(Self::neg_saturating(Self::i128_saturating(x))),
-            Self::Signed(x) => Self::Signed(Self::neg_saturating(x)),
+            Self::Unsigned(x) => Self::Signed(0i128.saturating_sub(Self::i128_saturating(x))),
+            Self::Signed(x) => Self::Signed(0i128.saturating_sub(x)),
         }
     }
 }

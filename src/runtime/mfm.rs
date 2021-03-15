@@ -22,11 +22,17 @@ pub struct Metadata {
     pub parameter_map: HashMap<String, Const>,
 }
 
+const VOID: char = ' ';
+const EMPTY: char = '.';
+const OCCUPIED: char = 'x';
+const UNKNOWN: char = '?';
+const BAD: char = '!';
+
 impl Metadata {
     pub fn new() -> Self {
         Self {
-            name: "".to_string(),
-            symbol: "".to_string(),
+            name: "???".to_string(),
+            symbol: "?".to_string(),
             descs: Vec::new(),
             authors: Vec::new(),
             licenses: Vec::new(),
@@ -80,11 +86,6 @@ impl<'input> EventWindow<'input> {
         self.paint.get_mut(i)
     }
 }
-
-const VOID: char = ' ';
-const EMPTY: char = '.';
-const OCCUPIED: char = 'x';
-const UNKNOWN: char = '?';
 
 impl fmt::Display for EventWindow<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
