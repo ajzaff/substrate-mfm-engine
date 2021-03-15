@@ -247,17 +247,20 @@ impl<'input> Runtime<'input> {
   }
 
   pub fn load_from_reader<R: ReadBytesExt>(&mut self, r: &mut R) -> Result<Const, Error> {
-    if let v = r.read_u32::<BigEndian>()? {
+    {
+      let v = r.read_u32::<BigEndian>()?;
       if v != MAGIC_NUMBER {
         return Err(Error::BadMagicNumber(v));
       }
     }
-    if let v = r.read_u16::<BigEndian>()? {
+    {
+      let v = r.read_u16::<BigEndian>()?;
       if v != Self::MINOR_VERSION {
         return Err(Error::BadMinorVersion(v));
       }
     }
-    if let v = r.read_u16::<BigEndian>()? {
+    {
+      let v = r.read_u16::<BigEndian>()?;
       if v != Self::MAJOR_VERSION {
         return Err(Error::BadMajorVersion(v));
       }
@@ -338,47 +341,47 @@ impl<'input> Runtime<'input> {
         Instruction::RestoreSymmetries => {
           cursor.symmetries = cursor.symmetries_stack.pop().unwrap()
         }
-        Instruction::Push0 => cursor.op_stack.push(0.into()),
-        Instruction::Push1 => cursor.op_stack.push(1.into()),
-        Instruction::Push2 => cursor.op_stack.push(2.into()),
-        Instruction::Push3 => cursor.op_stack.push(3.into()),
-        Instruction::Push4 => cursor.op_stack.push(4.into()),
-        Instruction::Push5 => cursor.op_stack.push(5.into()),
-        Instruction::Push6 => cursor.op_stack.push(6.into()),
-        Instruction::Push7 => cursor.op_stack.push(7.into()),
-        Instruction::Push8 => cursor.op_stack.push(8.into()),
-        Instruction::Push9 => cursor.op_stack.push(9.into()),
-        Instruction::Push10 => cursor.op_stack.push(10.into()),
-        Instruction::Push11 => cursor.op_stack.push(11.into()),
-        Instruction::Push12 => cursor.op_stack.push(12.into()),
-        Instruction::Push13 => cursor.op_stack.push(13.into()),
-        Instruction::Push14 => cursor.op_stack.push(14.into()),
-        Instruction::Push15 => cursor.op_stack.push(15.into()),
-        Instruction::Push16 => cursor.op_stack.push(16.into()),
-        Instruction::Push17 => cursor.op_stack.push(17.into()),
-        Instruction::Push18 => cursor.op_stack.push(18.into()),
-        Instruction::Push19 => cursor.op_stack.push(19.into()),
-        Instruction::Push20 => cursor.op_stack.push(20.into()),
-        Instruction::Push21 => cursor.op_stack.push(21.into()),
-        Instruction::Push22 => cursor.op_stack.push(22.into()),
-        Instruction::Push23 => cursor.op_stack.push(23.into()),
-        Instruction::Push24 => cursor.op_stack.push(24.into()),
-        Instruction::Push25 => cursor.op_stack.push(25.into()),
-        Instruction::Push26 => cursor.op_stack.push(26.into()),
-        Instruction::Push27 => cursor.op_stack.push(27.into()),
-        Instruction::Push28 => cursor.op_stack.push(28.into()),
-        Instruction::Push29 => cursor.op_stack.push(29.into()),
-        Instruction::Push30 => cursor.op_stack.push(30.into()),
-        Instruction::Push31 => cursor.op_stack.push(31.into()),
-        Instruction::Push32 => cursor.op_stack.push(32.into()),
-        Instruction::Push33 => cursor.op_stack.push(33.into()),
-        Instruction::Push34 => cursor.op_stack.push(34.into()),
-        Instruction::Push35 => cursor.op_stack.push(35.into()),
-        Instruction::Push36 => cursor.op_stack.push(36.into()),
-        Instruction::Push37 => cursor.op_stack.push(37.into()),
-        Instruction::Push38 => cursor.op_stack.push(38.into()),
-        Instruction::Push39 => cursor.op_stack.push(39.into()),
-        Instruction::Push40 => cursor.op_stack.push(40.into()),
+        Instruction::Push0 => cursor.op_stack.push(0u8.into()),
+        Instruction::Push1 => cursor.op_stack.push(1u8.into()),
+        Instruction::Push2 => cursor.op_stack.push(2u8.into()),
+        Instruction::Push3 => cursor.op_stack.push(3u8.into()),
+        Instruction::Push4 => cursor.op_stack.push(4u8.into()),
+        Instruction::Push5 => cursor.op_stack.push(5u8.into()),
+        Instruction::Push6 => cursor.op_stack.push(6u8.into()),
+        Instruction::Push7 => cursor.op_stack.push(7u8.into()),
+        Instruction::Push8 => cursor.op_stack.push(8u8.into()),
+        Instruction::Push9 => cursor.op_stack.push(9u8.into()),
+        Instruction::Push10 => cursor.op_stack.push(10u8.into()),
+        Instruction::Push11 => cursor.op_stack.push(11u8.into()),
+        Instruction::Push12 => cursor.op_stack.push(12u8.into()),
+        Instruction::Push13 => cursor.op_stack.push(13u8.into()),
+        Instruction::Push14 => cursor.op_stack.push(14u8.into()),
+        Instruction::Push15 => cursor.op_stack.push(15u8.into()),
+        Instruction::Push16 => cursor.op_stack.push(16u8.into()),
+        Instruction::Push17 => cursor.op_stack.push(17u8.into()),
+        Instruction::Push18 => cursor.op_stack.push(18u8.into()),
+        Instruction::Push19 => cursor.op_stack.push(19u8.into()),
+        Instruction::Push20 => cursor.op_stack.push(20u8.into()),
+        Instruction::Push21 => cursor.op_stack.push(21u8.into()),
+        Instruction::Push22 => cursor.op_stack.push(22u8.into()),
+        Instruction::Push23 => cursor.op_stack.push(23u8.into()),
+        Instruction::Push24 => cursor.op_stack.push(24u8.into()),
+        Instruction::Push25 => cursor.op_stack.push(25u8.into()),
+        Instruction::Push26 => cursor.op_stack.push(26u8.into()),
+        Instruction::Push27 => cursor.op_stack.push(27u8.into()),
+        Instruction::Push28 => cursor.op_stack.push(28u8.into()),
+        Instruction::Push29 => cursor.op_stack.push(29u8.into()),
+        Instruction::Push30 => cursor.op_stack.push(30u8.into()),
+        Instruction::Push31 => cursor.op_stack.push(31u8.into()),
+        Instruction::Push32 => cursor.op_stack.push(32u8.into()),
+        Instruction::Push33 => cursor.op_stack.push(33u8.into()),
+        Instruction::Push34 => cursor.op_stack.push(34u8.into()),
+        Instruction::Push35 => cursor.op_stack.push(35u8.into()),
+        Instruction::Push36 => cursor.op_stack.push(36u8.into()),
+        Instruction::Push37 => cursor.op_stack.push(37u8.into()),
+        Instruction::Push38 => cursor.op_stack.push(38u8.into()),
+        Instruction::Push39 => cursor.op_stack.push(39u8.into()),
+        Instruction::Push40 => cursor.op_stack.push(40u8.into()),
         Instruction::Push(c) => cursor.op_stack.push(c),
         Instruction::Pop => {
           cursor.op_stack.pop().expect("stack underflow");
