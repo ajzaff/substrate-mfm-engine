@@ -2,6 +2,7 @@ pub mod mfm;
 
 use crate::ast::{Arg, Instruction};
 use crate::base::arith::Const;
+use crate::base::color::Color;
 use crate::base::{FieldSelector, Symmetries};
 use crate::runtime::mfm::Metadata;
 use byteorder::BigEndian;
@@ -298,7 +299,7 @@ impl<'input> Runtime<'input> {
     code_map: HashMap<u16, Vec<Instruction<'input>>>,
   ) -> Result<(), Error> {
     let my_atom = ew.get(0).ok_or(Error::NoElement)?;
-    let my_type = my_atom.apply(FieldSelector::TYPE).as_u128() as u16;
+    let my_type: u16 = my_atom.apply(FieldSelector::TYPE).into();
     let code = code_map
       .get(&my_type)
       .ok_or(Error::UnknownElement(my_type))?;
@@ -308,26 +309,24 @@ impl<'input> Runtime<'input> {
         Instruction::Nop => {}
         Instruction::Exit => break,
         Instruction::SwapSites => {
-          let j = cursor.op_stack.pop().unwrap().as_u128() as usize;
-          let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
+          let j: usize = cursor.op_stack.pop().unwrap().into();
+          let i: usize = cursor.op_stack.pop().unwrap().into();
           ew.swap(i, j);
         }
         Instruction::SetSite => {
           let c = cursor.op_stack.pop().unwrap();
-          let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
+          let i: usize = cursor.op_stack.pop().unwrap().into();
           *ew.get_mut(i).unwrap() = c;
         }
         Instruction::SetField(_) => todo!(),
         Instruction::SetSiteField(_) => todo!(),
         Instruction::GetSite => {
-          let v = *ew
-            .get(cursor.op_stack.pop().unwrap().as_u128() as usize)
-            .unwrap();
+          let v = *ew.get(cursor.op_stack.pop().unwrap().into()).unwrap();
           cursor.op_stack.push(v);
         }
         Instruction::GetField(_) => todo!(),
         Instruction::GetSiteField(f) => {
-          let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
+          let i: usize = cursor.op_stack.pop().unwrap().into();
           cursor.op_stack.push(ew.get(i).unwrap().apply(*f.runtime()));
         }
         Instruction::GetType(x) => cursor.op_stack.push((*x.runtime()).into()),
@@ -471,7 +470,7 @@ impl<'input> Runtime<'input> {
         }
         Instruction::BitCount => {
           let a = cursor.op_stack.pop().unwrap();
-          cursor.op_stack.push(a.as_u128().count_ones().into());
+          cursor.op_stack.push(a.count_ones().into());
         }
         Instruction::BitScanForward => todo!(),
         Instruction::BitScanReverse => todo!(),
@@ -495,14 +494,12 @@ impl<'input> Runtime<'input> {
           }
         }
         Instruction::SetPaint => {
-          let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
-          let v = cursor.op_stack.pop().unwrap().as_u128() as u32;
-          *ew.get_paint_mut(i).unwrap() = v.into();
+          let c: u32 = cursor.op_stack.pop().unwrap().into();
+          *ew.get_paint_mut(0).unwrap() = c.into();
         }
         Instruction::GetPaint => {
-          let i = cursor.op_stack.pop().unwrap().as_u128() as usize;
-          let v = ew.get_paint(i).unwrap();
-          cursor.op_stack.push(v.bits().into());
+          let c = ew.get_paint(0).unwrap();
+          cursor.op_stack.push(c.bits().into());
         }
       }
       cursor.ip += 1;

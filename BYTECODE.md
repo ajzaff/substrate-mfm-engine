@@ -69,9 +69,13 @@ The value that follows depends on the key.
 
 ## Code Index Size
 
+Note: This is **always 0**. It might be removed later.
+
 The size of the code index described in the next section.
 
 ## Code Index
+
+Note: The code index **is not used** always has length 0. It may be removed later.
 
 The purpose of the code index is to record the types and custom bit-widths of arguments in the following code table.
 

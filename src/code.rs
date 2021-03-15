@@ -129,9 +129,8 @@ impl Compiler {
     }
 
     fn write_u96<W: WriteBytesExt>(w: &mut W, x: Const) -> Result<(), io::Error> {
-        let v = x.as_u128();
-        w.write_u32::<BigEndian>((v >> 64) as u32)?;
-        w.write_u64::<BigEndian>(v as u64)
+        w.write_u32::<BigEndian>((x >> 64).into())?;
+        w.write_u64::<BigEndian>(x.into())
     }
 
     fn write_string<'input, W: WriteBytesExt>(
