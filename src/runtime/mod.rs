@@ -315,7 +315,7 @@ impl<'input> Runtime<'input> {
 
   pub fn execute(
     ew: &mut mfm::EventWindow,
-    code_map: HashMap<u16, Vec<Instruction<'input>>>,
+    code_map: &HashMap<u16, Vec<Instruction<'input>>>,
   ) -> Result<(), Error> {
     let my_atom = ew.get(0).ok_or(Error::NoElement)?;
     let my_type: u16 = my_atom.apply(FieldSelector::TYPE).into();

@@ -56,8 +56,8 @@ pub struct EventWindow<'input> {
 impl<'input> EventWindow<'input> {
     pub fn new() -> Self {
         Self {
-            data: [0u128.into(); 41],
-            paint: [0u32.into(); 41],
+            data: [0.into(); 41],
+            paint: [0.into(); 41],
             type_map: None,
         }
     }
@@ -84,6 +84,11 @@ impl<'input> EventWindow<'input> {
 
     pub fn get_paint_mut(&mut self, i: usize) -> Option<&mut color::Color> {
         self.paint.get_mut(i)
+    }
+
+    pub fn reset(&mut self) {
+        self.data.iter_mut().for_each(|x| *x = 0.into());
+        self.paint.iter_mut().for_each(|x| *x = 0.into());
     }
 }
 
