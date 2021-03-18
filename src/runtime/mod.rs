@@ -3,10 +3,10 @@ pub mod mfm;
 use crate::ast::{Arg, Instruction};
 use crate::base::arith::Const;
 use crate::base::{FieldSelector, Symmetries};
-use crate::runtime::mfm::Metadata;
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use log::trace;
+use mfm::{EventWindow, Metadata};
 use std::collections::HashMap;
 use std::io;
 use thiserror;
@@ -313,8 +313,8 @@ impl<'input> Runtime<'input> {
     Ok(((type_num as u128) << 80).into())
   }
 
-  pub fn execute(
-    ew: &mut mfm::EventWindow,
+  pub fn execute<T: mfm::EventWindow>(
+    ew: &mut T,
     code_map: &HashMap<u16, Vec<Instruction<'input>>>,
   ) -> Result<(), Error> {
     let my_atom = ew.get(0).ok_or(Error::NoElement)?;
@@ -580,10 +580,10 @@ impl<'input> Runtime<'input> {
         }
         Instruction::SetPaint => {
           let c: u32 = cursor.op_stack.pop().unwrap().into();
-          *ew.get_paint_mut(0).unwrap() = c.into();
+          *ew.get_paint_mut().unwrap() = c.into();
         }
         Instruction::GetPaint => {
-          let c = ew.get_paint(0).unwrap();
+          let c = ew.get_paint().unwrap();
           cursor.op_stack.push(c.bits().into());
         }
       }

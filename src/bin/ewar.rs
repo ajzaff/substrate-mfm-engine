@@ -7,7 +7,7 @@ mod base;
 #[path = "../ast.rs"]
 mod ast;
 
-use crate::runtime::mfm::EventWindow;
+use crate::runtime::mfm::{debug_event_window, EventWindow, MinimalEventWindow};
 use crate::runtime::Runtime;
 use clap::arg_enum;
 use std::fs::File;
@@ -140,9 +140,9 @@ fn ewar_main(args: &Cli) {
     .load_from_reader(&mut r)
     .expect("Failed to process input file");
 
-  let mut ew = EventWindow::new();
-  ew.set_type_map(&runtime.type_map);
+  let mut ew = MinimalEventWindow::new();
   *ew.get_mut(0).unwrap() = atom;
   Runtime::execute(&mut ew, &runtime.code_map).expect("Failed to execute");
-  println!("{}", ew);
+  debug_event_window(&ew, &mut std::io::stdout(), &runtime.type_map)
+    .expect("Failed to debug event window");
 }

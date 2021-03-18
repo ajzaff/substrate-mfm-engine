@@ -21,7 +21,7 @@ atty = "0.2"
 structopt = "0.3"
 enquote = "1.0"
 bitflags = "1.0"
-rand = "0.8.3"
+rand = "0.8"
 lalrpop-util = "0.19"
 
 [[bin]]
