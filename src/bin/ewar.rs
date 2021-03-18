@@ -106,7 +106,7 @@ struct Cli {
   )]
   color: ColorMode,
 
-  #[structopt(short = "q", long = "quiet", help = "Silence logging output.")]
+  #[structopt(short = "q", long = "quiet", help = "Silence all logging output.")]
   quiet: bool,
 
   #[structopt(
@@ -143,6 +143,6 @@ fn ewar_main(args: &Cli) {
   let mut ew = EventWindow::new();
   ew.set_type_map(&runtime.type_map);
   *ew.get_mut(0).unwrap() = atom;
-  Runtime::execute(&mut ew, runtime.code_map).expect("Failed to execute");
+  Runtime::execute(&mut ew, &runtime.code_map).expect("Failed to execute");
   println!("{}", ew);
 }

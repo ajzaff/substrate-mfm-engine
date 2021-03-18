@@ -315,10 +315,10 @@ impl<'input> Runtime<'input> {
 
   pub fn execute(
     ew: &mut mfm::EventWindow,
-    code_map: HashMap<u16, Vec<Instruction<'input>>>,
+    code_map: &HashMap<u16, Vec<Instruction<'input>>>,
   ) -> Result<(), Error> {
     let my_atom = ew.get(0).ok_or(Error::NoElement)?;
-    let my_type: u16 = my_atom.apply(FieldSelector::TYPE).into();
+    let my_type: u16 = my_atom.apply(&FieldSelector::TYPE).into();
     let code = code_map
       .get(&my_type)
       .ok_or(Error::UnknownElement(my_type))?;
@@ -356,16 +356,29 @@ impl<'input> Runtime<'input> {
           let i: usize = cursor.op_stack.pop().unwrap().into();
           *ew.get_mut(i).unwrap() = c;
         }
-        Instruction::SetField(_) => todo!(),
-        Instruction::SetSiteField(_) => todo!(),
+        Instruction::SetField(f) => {
+          let mut b = cursor.op_stack.pop().unwrap();
+          let a = cursor.op_stack.pop().unwrap();
+          let fi = f.runtime();
+          b.truncate(fi.length);
+          cursor.op_stack.push(a | (b << fi.offset));
+        }
+        Instruction::SetSiteField(f) => {
+          let i: usize = cursor.op_stack.pop().unwrap().into();
+          let a = ew.get_mut(i).unwrap();
+          *a = a.apply(f.runtime());
+        }
         Instruction::GetSite => {
           let v = *ew.get(cursor.op_stack.pop().unwrap().into()).unwrap();
           cursor.op_stack.push(v);
         }
-        Instruction::GetField(_) => todo!(),
+        Instruction::GetField(f) => {
+          let a = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(a.apply(f.runtime()));
+        }
         Instruction::GetSiteField(f) => {
           let i: usize = cursor.op_stack.pop().unwrap().into();
-          cursor.op_stack.push(ew.get(i).unwrap().apply(*f.runtime()));
+          cursor.op_stack.push(ew.get(i).unwrap().apply(f.runtime()));
         }
         Instruction::GetType(x) => cursor.op_stack.push((*x.runtime()).into()),
         Instruction::GetParameter(c) => {
@@ -520,10 +533,24 @@ impl<'input> Runtime<'input> {
           let a = cursor.op_stack.pop().unwrap();
           cursor.op_stack.push(a.count_ones().into());
         }
-        Instruction::BitScanForward => todo!(),
-        Instruction::BitScanReverse => todo!(),
-        Instruction::LShift => todo!(),
-        Instruction::RShift => todo!(),
+        Instruction::BitScanForward => {
+          let a = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(a.bitscanforward().into());
+        }
+        Instruction::BitScanReverse => {
+          let a = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(a.bitscanreverse().into());
+        }
+        Instruction::LShift => {
+          let b = cursor.op_stack.pop().unwrap();
+          let a = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(a >> b.into()) // TODO handle b overflow
+        }
+        Instruction::RShift => {
+          let b = cursor.op_stack.pop().unwrap();
+          let a = cursor.op_stack.pop().unwrap();
+          cursor.op_stack.push(a << b.into()) // TODO handle b overflow
+        }
         Instruction::Jump(x) => {
           cursor.ip = *x.runtime() as usize;
           continue;

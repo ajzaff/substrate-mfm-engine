@@ -24,6 +24,20 @@ impl Const {
         }
     }
 
+    pub fn bitscanforward(&self) -> u32 {
+        match self {
+            Self::Unsigned(x) => x.trailing_zeros(),
+            Self::Signed(x) => x.trailing_zeros(),
+        }
+    }
+
+    pub fn bitscanreverse(&self) -> u32 {
+        match self {
+            Self::Unsigned(x) => x.leading_zeros(),
+            Self::Signed(x) => x.leading_zeros(),
+        }
+    }
+
     fn is_neg(&self) -> bool {
         match self {
             Self::Unsigned(_) => false,
@@ -80,7 +94,7 @@ impl Const {
     }
 
     /// truncate the Const to i bits saturating the underflow or overflow.
-    fn truncate(&mut self, i: u8) {
+    pub fn truncate(&mut self, i: u8) {
         assert_ne!(i, 0);
 
         let is_neg = self.is_neg();
@@ -107,7 +121,7 @@ impl Const {
         }
     }
 
-    pub fn apply(self, f: FieldSelector) -> Const {
+    pub fn apply(self, f: &FieldSelector) -> Const {
         let mut x = self >> f.offset;
         x.truncate(f.length);
         x
@@ -372,5 +386,19 @@ impl Ord for Const {
 impl PartialOrd for Const {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_zero() {
+        assert!(Const::Unsigned(0).is_zero());
+        assert!(Const::Signed(0).is_zero());
+        assert!(!Const::Unsigned(1).is_zero());
+        assert!(!Const::Signed(1).is_zero());
+        assert!(!Const::Signed(-1).is_zero());
     }
 }

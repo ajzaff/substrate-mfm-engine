@@ -107,7 +107,7 @@ impl fmt::Display for EventWindow<'_> {
                 for _ in 0..2 * $cols + 1 {
                     if let Some(x) = self.data.get(INDICES[idx]) {
                         if let Some(type_map) = self.type_map {
-                            let typ: u16 = x.apply(FieldSelector::TYPE).into();
+                            let typ: u16 = x.apply(&FieldSelector::TYPE).into();
                             let meta = type_map.get(&typ);
                             if let Some(meta) = meta {
                                 let (r, g, b) = meta.fg_color.components();
