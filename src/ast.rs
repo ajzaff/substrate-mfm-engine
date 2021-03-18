@@ -25,8 +25,6 @@ pub enum Metadata<'input> {
 }
 
 impl Metadata<'_> {
-    pub const MAX: u8 = 10;
-
     pub fn as_u8(&self) -> u8 {
         match self {
             Self::Name(_) => 0,
@@ -170,8 +168,6 @@ pub enum Instruction<'input> {
 }
 
 impl Instruction<'_> {
-    pub const MAX: u8 = 87;
-
     pub fn as_u8(&self) -> u8 {
         match self {
             Self::Nop => 0,

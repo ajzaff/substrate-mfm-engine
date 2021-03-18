@@ -26,4 +26,4 @@ lalrpop-util = "0.19"
 
 [[bin]]
 name = "ewac"
-path = "src/bin.rs"
+path = "src/main.rs"

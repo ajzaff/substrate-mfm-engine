@@ -11,6 +11,7 @@ use std::io;
 use std::str::FromStr;
 use thiserror;
 
+#[ignore = "unused"]
 lalrpop_mod!(pub substrate); // syntesized by LALRPOP
 
 #[derive(thiserror::Error, Debug)]
@@ -21,14 +22,8 @@ pub enum CompileError<'input> {
     ParseError(lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>),
     #[error("parse color error")]
     ParseColorError(#[from] ParseColorError),
-    #[error("internal error")]
-    InternalError,
     #[error("unexpected node type")]
     InternalUnexpectedNodeType,
-    #[error("unexpected args count")]
-    InternalUnexpectedArgsCount,
-    #[error("unexpected arg type")]
-    InternalUnexpectedArgType,
     #[error("max code size reached: branches are unstable")]
     MaxCodeSize,
 }
@@ -40,16 +35,6 @@ impl<'input> From<lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'in
         x: lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'input>, &'input str>,
     ) -> Self {
         CompileError::ParseError(x)
-    }
-}
-
-struct CodeEntry {
-    args: Vec<u8>,
-}
-
-impl CodeEntry {
-    fn new() -> Self {
-        Self { args: Vec::new() }
     }
 }
 
@@ -115,7 +100,6 @@ impl Compiler {
     fn index_code_node<'input>(
         ln: &mut u16,
         n: Node<'input>,
-        _code_index: &mut HashMap<u16, CodeEntry>,
         label_map: &mut HashMap<&'input str, u16>,
     ) -> Result<(), CompileError<'input>> {
         match n {
@@ -151,8 +135,6 @@ impl Compiler {
     fn write_metadata<'input, W: WriteBytesExt>(
         w: &mut W,
         n: Node<'input>,
-        const_map: &HashMap<&'input str, Const>,
-        field_map: &HashMap<&'input str, base::FieldSelector>,
     ) -> Result<(), CompileError<'input>> {
         let m = match n {
             Node::Metadata(m) => m,
@@ -182,13 +164,6 @@ impl Compiler {
                 Self::write_u96(w, c).map_err(|x| x.into())
             }
         }
-    }
-
-    fn write_code_index<'input, W: WriteBytesExt>(
-        w: &mut W,
-        code_index: &HashMap<u16, CodeEntry>,
-    ) -> Result<(), CompileError<'input>> {
-        todo!()
     }
 
     fn write_instruction<'input, W: WriteBytesExt>(
@@ -305,7 +280,6 @@ impl Compiler {
             return Err(CompileError::MaxCodeSize);
         }
 
-        let mut code_index: HashMap<u16, CodeEntry> = HashMap::new();
         let mut label_map: HashMap<&'input str, u16> = HashMap::new();
         let mut const_map: HashMap<&'input str, Const> = HashMap::new();
         let mut field_map: HashMap<&'input str, base::FieldSelector> = Self::new_field_map();
@@ -317,7 +291,7 @@ impl Compiler {
         let code_lines = {
             let mut ln = 0u16;
             for n in ast.body.iter() {
-                Self::index_code_node(&mut ln, *n, &mut code_index, &mut label_map)?;
+                Self::index_code_node(&mut ln, *n, &mut label_map)?;
             }
             ln
         };
@@ -330,11 +304,8 @@ impl Compiler {
 
         w.write_u8(ast.header.len() as u8)?;
         for e in ast.header.iter() {
-            Self::write_metadata(w, *e, &const_map, &field_map)?;
+            Self::write_metadata(w, *e)?;
         }
-
-        w.write_u16::<BigEndian>(code_index.len() as u16)?;
-        // Self::write_code_index(w, &code_index)?;
 
         w.write_u16::<BigEndian>(code_lines)?;
         for e in ast.body.iter() {

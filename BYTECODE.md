@@ -12,7 +12,6 @@ File {
   u2          self_type_num;
   u1          metadata_size;
   md_entry    [metadata; metadata_size];
-  u2          code_index_size;
   ci_entry    [code_index; code_index_size];
   u2          instruction_count;
   code_entry  [code; instruction_count];
@@ -67,54 +66,6 @@ The metadata map holds structured data for the program which is read as key-valu
 
 The value that follows depends on the key.
 
-## Code Index Size
-
-Note: This is **always 0**. It might be removed later.
-
-The size of the code index described in the next section.
-
-## Code Index
-
-Note: The code index **is not used** always has length 0. It may be removed later.
-
-The purpose of the code index is to record the types and custom bit-widths of arguments in the following code table.
-
-This index is required to parse the code, as arguments will be packed into a number of bits specified by their `type`.
-
-```
-ci_entry {
-  u2    instruction_idx;
-  u1    type;
-}
-```
-
-A multimap repeated as neccessary for instructions with multiple arguments.
-
-A type is a single byte containing:
-
-* A sign:
-  * `Signed` (`0x80`)
-  * `Unsigned` (`0x0`)
-* A custom bit width ranging from 1 - 96.
-
-### Example
-
-The code index contents is shown inline in the comments:
-
-```
-.field is_foo,0,1
-
-  push 0xfff /* Unsigned(24) */
-  push1      /* Unsigned(6)  */
-  push0      /* ... */
-  getsite    /* => Unsigned(96) */
-  push +1         /* Signed(2) */
-  getfield is_foo /* Unsigned(1) */
-  add             /* => Signed(3) */
-```
-
-Note that the code table need not represent the types of instructions lacking arguments as these are determined soley from their inputs (the resultant type denoted with a `=>`).
-
 ## Instruction Count
 
 The total number of instructions. This defines the legal range of instruction pointers as `[0, code_lines)`. Labels and comments do not count as code lines.
@@ -133,3 +84,21 @@ oneof code_entry {
 The number of args `n` depends on the instruction (though most instructions have 0 or 1 argument).
 
 The size of arguments are determined in the code index.
+
+### Types
+
+A byte is used to represent the type of constants that appear in code. See the compiler code for more details.
+
+```
+.field is_foo,0,1
+
+  push 0xfff      /* Unsigned(16) */
+  push1           /* Unsigned(8)  */
+  push0           /* Unsigned(8) */
+  getsite         /* => Unsigned(128) */
+  push +1         /* Signed(8) */
+  getfield is_foo /* Unsigned(8) */
+  add             /* => Signed(16) */
+```
+
+Note that the code table need not represent the types of instructions lacking arguments as these are determined soley from their inputs (the resultant type denoted with a `=>`).

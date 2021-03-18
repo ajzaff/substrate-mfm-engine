@@ -106,7 +106,7 @@ struct Cli {
   )]
   color: ColorMode,
 
-  #[structopt(short = "q", long = "quiet", help = "Silence logging output.")]
+  #[structopt(short = "q", long = "quiet", help = "Silence all logging output.")]
   quiet: bool,
 
   #[structopt(

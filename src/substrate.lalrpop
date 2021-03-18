@@ -2,7 +2,6 @@ use crate::ast::{Arg, File, Instruction, Metadata, Node};
 use crate::base;
 use crate::base::arith::Const;
 use crate::base::Symmetries;
-use enquote::unquote;
 use std::str::FromStr;
 use std::vec::Vec;
 

@@ -108,9 +108,10 @@ Symmetries affect what a site number refers to. Namely one of the valid rotation
 A label is represented by label name and a `:`.
 
 ```
-  copy R0 1
+  push 1
 loop:
-  add R0 R0
+  push 1
+  add
   jump loop
 ```
 
@@ -120,8 +121,9 @@ A label at the end of the program is often provided, conventionally called `exit
 
 ```
   // ...
-  jumpnonzero exit $field
-  sub $field 1
+  jumpnonzero exit
+  push 1
+  sub
 exit:
   // program ends
 ```
