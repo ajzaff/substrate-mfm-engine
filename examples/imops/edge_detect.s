@@ -1,0 +1,105 @@
+/* EdgeDetect - runs edge detection on an input image.
+
+  [[ -1 -1 -1 ]]
+  [[ -1  8 -1 ]]
+  [[ -1 -1 -1 ]]
+
+  Edge detection is a simple operation which finds sharp changes in brightness in an image.
+  It's also a kernel convolution which means there's a simple local procedure for calculing
+  the result. A perfect fit for the MFM architecture!
+
+  A single element initializes the operation and runs all parts of the computation.
+  The resulting image is read from and wrote to the site paint.
+
+  The element works by copying itself across the grid rapidly, then, when all 8 neighbors
+  are present, writes the output to the site paint and self destructs.
+
+  One quirk is the site paint is only accessible at site 0, so atoms must expose their
+  site paint in a field named `paint`.
+
+  The `done` bit indicates we've writen our result and are waiting to self-destruct.
+*/
+
+.name "EdgeDetect"
+.symbol "C"
+.fg_color "#0c0"
+.bg_color "#000"
+.author "Alan Zaffetti"
+.license "GPL-2.0-or-later"
+.symmetries NONE
+.radius 1
+.field paint 0,32
+.field done  40,1
+
+                               /* Have we convolved already? We might be able to self destruct. */
+  push8                        /* i */
+check_convolve_loop:
+  dup                          /* i i */
+  getsitefield done            /* #i.done */
+  jumpzero store_paint
+  push1
+  sub                          /* i-- */
+  jumpnonzero check_convolve_loop
+                               /* Everyone is done... Let's self-destruct. */
+self_destruct:
+  push0
+  push0
+  setsite                      /* #0 = 0 */
+  exit                         /* Bye! */
+
+store_paint:
+  getpaint
+  setfield paint               /* 0.paint = 0.paint */
+
+                               /* The ready_loop makes sure all neighbors are present
+                                  and have a paint ready. */
+  push8
+ready_loop:
+  dup                          /* i i */
+  getsitefield type            /* i.type */
+  jumpzero reproduce           /* We're not ready to convolve; reproduce. */
+  push1
+  sub                          /* i-- */
+  jumpnonzero ready_loop       /* break */
+
+                               /* The convolution loop sums our neighbor's paints. */
+  push0                        /* acc; an accumulator for the convolution. */
+  push8                        /* i */
+convolve_loop:
+  dup                          /* i i */
+  getsitefield paint           /* i.paint */
+  neg
+  add                          /* acc += -i.paint */
+  swap                         /* acc, i */
+  push1
+  sub                          /* i-- */
+  jumpnonzero convolve_loop    /* break */
+
+                               /* Finish the convolution by adding `8 * 0.paint`. */
+  getfield paint               /* #0.paint */
+  push8
+  mul                          /* 8 * #0.paint */
+  add                          /* acc += 8 * #0.paint */
+  setpaint                     /* acc now contains the edge detection result.
+                                  Store it in the site paint and set our done status. */
+done:
+  push0
+  push1
+  setsitefield done            /* #0.done = 1 */
+  exit                         /* Bye! */
+
+reproduce:                     /* Spread myself. */
+  gettype "EdgeDetect"
+  push0
+  setfield type                /* Stack now contains a new empty EdgeDetect atom. */
+  push8                        /* a i */
+reproduce_loop:
+  over
+  over                         /* a i a i */
+  setsite                      /* #i = a */
+  dup
+  push1
+  sub                          /* i-- */
+  jumpnonzero reproduce_loop
+
+quit:                          /* Goodbye! */
