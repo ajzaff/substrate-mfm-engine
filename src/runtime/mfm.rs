@@ -5,9 +5,8 @@ use crate::base::color::Color;
 use crate::base::FieldSelector;
 use colored::*;
 use lazy_static::lazy_static;
-use rand::Rng;
+use rand::RngCore;
 use std::collections::HashMap;
-use std::fmt;
 
 #[derive(Clone, Debug)]
 pub struct Metadata {
@@ -219,50 +218,98 @@ impl From<(usize, usize)> for Bounds {
     }
 }
 
-pub struct DenseGridStorage<R: Rng> {
+pub struct DenseGrid<'a, R: RngCore> {
     data: Vec<Const>,
     paint: Vec<Color>,
     size: Bounds,
     scale: usize,
-    rng: R,
+    origin: usize,
+    rng: &'a mut R,
 }
 
-impl<R: Rng> DenseGridStorage<R> {
-    pub fn new(rng: R, size: (usize, usize)) -> Self {
+impl<'a, R: RngCore> DenseGrid<'a, R> {
+    pub fn new(rng: &'a mut R, size: (usize, usize)) -> Self {
         Self::with_scale(rng, 1, size)
     }
 
-    pub fn with_scale(rng: R, scale: usize, size: (usize, usize)) -> Self {
+    pub fn with_scale(rng: &'a mut R, scale: usize, size: (usize, usize)) -> Self {
         Self {
-            data: vec![0.into(); size.0 * size.1], // TODO: fix the capacity
-            paint: vec![0.into(); scale * size.0 * size.1], // TODO: fix the capacity
+            data: {
+                let mut v = Vec::with_capacity(size.0 * size.1);
+                (0..size.0 * size.1).for_each(|_| v.push(0.into()));
+                v
+            },
+            paint: {
+                let mut v = Vec::with_capacity(size.0 * size.1);
+                (0..size.0 * size.1).for_each(|_| v.push(0.into()));
+                v
+            },
             size: size.into(),
             scale: scale,
+            origin: rng.next_u64() as usize % (size.0 * size.1),
             rng: rng,
         }
     }
 }
 
-impl<R: Rng> EventWindow for DenseGridStorage<R> {
-    fn reset(&mut self) {}
+impl<R: RngCore> EventWindow for DenseGrid<'_, R> {
+    fn reset(&mut self) {
+        self.origin = self.rng.next_u64() as usize % self.data.len()
+    }
 
     fn get(&self, i: usize) -> Option<&Const> {
-        self.data.get(i)
+        let wi = WINDOW_OFFSETS.get(i)?;
+        let i = self
+            .origin
+            .checked_add((wi.1 * self.size.width as isize + wi.0) as usize);
+        if let Some(i) = i {
+            self.data.get(i)
+        } else {
+            None
+        }
     }
 
     fn get_mut(&mut self, i: usize) -> Option<&mut Const> {
-        self.data.get_mut(i)
+        let wi = WINDOW_OFFSETS.get(i)?;
+        let i = self
+            .origin
+            .checked_add((wi.1 * self.size.width as isize + wi.0) as usize);
+        if let Some(i) = i {
+            self.data.get_mut(i)
+        } else {
+            None
+        }
     }
 
     fn swap(&mut self, i: usize, j: usize) {
-        self.data.swap(i, j);
+        let wi = WINDOW_OFFSETS.get(i);
+        if wi == None {
+            return;
+        }
+        let wj = WINDOW_OFFSETS.get(j);
+        if wj == None {
+            return;
+        }
+        let (w1, w2) = (wi.unwrap(), wj.unwrap());
+        let i1 = self
+            .origin
+            .checked_add((w1.1 * self.size.width as isize + w1.0) as usize);
+        if i1.is_none() {
+            return;
+        }
+        let i2 = self
+            .origin
+            .checked_add((w2.1 * self.size.width as isize + w2.0) as usize);
+        if i2.is_some() {
+            self.data.swap(i1.unwrap(), i2.unwrap());
+        }
     }
 
     fn get_paint(&self) -> Option<&color::Color> {
-        self.paint.get(0)
+        self.paint.get(self.origin)
     }
 
     fn get_paint_mut(&mut self) -> Option<&mut color::Color> {
-        self.paint.get_mut(0)
+        self.paint.get_mut(self.origin)
     }
 }

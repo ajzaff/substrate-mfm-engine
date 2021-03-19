@@ -302,8 +302,6 @@ impl<'input> Runtime<'input> {
 
     let mut code = Vec::new();
 
-    r.read_u16::<BigEndian>()?; // Code index stub
-
     for _ in 0..r.read_u16::<BigEndian>()? {
       Self::read_instruction(r, &mut code)?;
     }

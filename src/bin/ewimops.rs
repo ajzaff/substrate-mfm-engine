@@ -7,9 +7,11 @@ mod base;
 #[path = "../ast.rs"]
 mod ast;
 
-use crate::runtime::mfm::EventWindow;
+use crate::runtime::mfm::{DenseGrid, EventWindow};
 use crate::runtime::Runtime;
 use clap::arg_enum;
+use rand::rngs::SmallRng;
+use rand::SeedableRng;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -50,7 +52,7 @@ struct Cli {
 
     #[structopt(
         long = "random-seed",
-        help = "A 64 bit random seed used to initialize the random number generator.",
+        help = "A 64 bit seed used to initialize the random number generator.",
         default_value = "1337"
     )]
     random_seed: u64,
@@ -80,9 +82,14 @@ fn main() {
 fn ewimops_main(args: &Cli) {
     let mut runtime = Runtime::new();
 
-    let mut file = File::open(Path::new::<String>(&args.input)).expect("Failed to open input file");
+    let mut file = File::open(Path::new::<String>(&args.init)).expect("Failed to open input file");
     let mut r = BufReader::new(&mut file);
     let atom = runtime
         .load_from_reader(&mut r)
         .expect("Failed to process input file");
+    let mut rng = SmallRng::from_entropy();
+    let mut ew = DenseGrid::new(&mut rng, (672, 424));
+    for _ in 0..100 {
+        ew.reset();
+    }
 }
