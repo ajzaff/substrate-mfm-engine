@@ -31,15 +31,20 @@
 .field paint 0,32
 .field done  40,1
 
-                               /* Have we convolved already? We might be able to self destruct. */
+                               /* Have we convolved already? Have our neighbors convolved?
+                                  We might be able to self destruct. */
+  push0
+  getsitefield done            /* #0.done */
+  jumpzero store_paint
+                               /* We are done with the convolution. Check our neighbors. */
   push8                        /* i */
-check_convolve_loop:
+check_done_loop:
   dup                          /* i i */
   getsitefield done            /* #i.done */
   jumpzero store_paint
   push1
   sub                          /* i-- */
-  jumpnonzero check_convolve_loop
+  jumpnonzero check_done_loop
                                /* Everyone is done... Let's self-destruct. */
 self_destruct:
   push0
@@ -47,12 +52,12 @@ self_destruct:
   setsite                      /* #0 = 0 */
   exit                         /* Bye! */
 
-store_paint:
+store_paint:                   /* Otherwise proceed normally. Store the site paint into our `paint` field. */
   getpaint
-  setfield paint               /* 0.paint = 0.paint */
+  setfield paint               /* #0.paint = getpaint() */
 
-                               /* The ready_loop makes sure all neighbors are present
-                                  and have a paint ready. */
+                               /* The ready_loop makes sure all neighbors are present to begin the
+                                  convolution. If not, we will create them later. */
   push8
 ready_loop:
   dup                          /* i i */
@@ -62,21 +67,22 @@ ready_loop:
   sub                          /* i-- */
   jumpnonzero ready_loop       /* break */
 
-                               /* The convolution loop sums our neighbor's paints. */
-  push0                        /* acc; an accumulator for the convolution. */
+                               /* The convolution operation begins here: */
+  push0                        /* Initialize an accumulator for the convolution. */
   push8                        /* i */
 convolve_loop:
   dup                          /* i i */
-  getsitefield paint           /* i.paint */
-  neg
+  getsitefield paint
+  neg                          /* -#i.paint */
   add                          /* acc += -i.paint */
   swap                         /* acc, i */
   push1
-  sub                          /* i-- */
+  sub                          /* acc, i-1 */
+  dup                          /* acc, i-1, i-1 */
   jumpnonzero convolve_loop    /* break */
 
                                /* Finish the convolution by adding `8 * 0.paint`. */
-  getfield paint               /* #0.paint */
+  getsitefield paint           /* #0.paint */
   push8
   mul                          /* 8 * #0.paint */
   add                          /* acc += 8 * #0.paint */
@@ -99,7 +105,7 @@ reproduce_loop:
   setsite                      /* #i = a */
   dup
   push1
-  sub                          /* i-- */
+  sub                          /* a i-1 */
   jumpnonzero reproduce_loop
 
 quit:                          /* Goodbye! */
