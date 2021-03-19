@@ -4,9 +4,11 @@ use crate::base::color;
 use crate::base::color::Color;
 use crate::base::FieldSelector;
 use colored::*;
+use image::RgbaImage;
 use lazy_static::lazy_static;
 use log::trace;
 use rand::RngCore;
+use std::cmp::min;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -172,8 +174,8 @@ pub fn debug_event_window<T: EventWindow>(
                 let typ: u16 = x.apply(&FieldSelector::TYPE).into();
                 let meta = type_map.get(&typ);
                 if let Some(meta) = meta {
-                    let (r, g, b) = meta.fg_color.components();
-                    let (b_r, b_g, b_b) = meta.bg_color.components();
+                    let (r, g, b, _) = meta.fg_color.components();
+                    let (b_r, b_g, b_b, _) = meta.bg_color.components();
                     s.push_str(
                         format!(
                             "{}",
@@ -305,5 +307,37 @@ impl<R: RngCore> EventWindow for DenseGrid<'_, R> {
 
     fn get_paint_mut(&mut self) -> &mut color::Color {
         self.paint.get_mut(self.origin).unwrap()
+    }
+}
+
+pub trait Blit {
+    fn blit_image(&mut self, im: &RgbaImage);
+
+    fn unblit_image(&self, im: &mut RgbaImage);
+}
+
+impl<R: RngCore> Blit for DenseGrid<'_, R> {
+    fn blit_image(&mut self, im: &RgbaImage) {
+        let (width, height) = im.dimensions();
+        for x in 0..min(self.size.width, width as usize) {
+            for y in 0..min(self.size.height, height as usize) {
+                let pix = im.get_pixel(x as u32, y as u32);
+                let mut c = (pix.0[0] as u32) << 24;
+                c |= (pix.0[1] as u32) << 16;
+                c |= (pix.0[2] as u32) << 8;
+                c |= pix.0[3] as u32;
+                self.paint[y * self.size.width + x] = c.into();
+            }
+        }
+    }
+
+    fn unblit_image(&self, im: &mut RgbaImage) {
+        let (width, height) = im.dimensions();
+        for x in 0..min(self.size.width, width as usize) {
+            for y in 0..min(self.size.height, height as usize) {
+                let (r, g, b, a) = self.paint[y * self.size.width + x].components();
+                *im.get_pixel_mut(x as u32, y as u32) = [r, g, b, a].into();
+            }
+        }
     }
 }

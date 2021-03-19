@@ -9,9 +9,13 @@ mod ast;
 
 use crate::runtime::mfm::{DenseGrid, EventWindow};
 use crate::runtime::Runtime;
-use clap::arg_enum;
+use image::io::Reader as ImageReader;
+use image::{DynamicImage, RgbaImage};
+use log::trace;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
+use runtime::mfm::Blit;
+use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -81,8 +85,13 @@ fn main() {
 
 fn ewimops_main(args: &Cli) {
     let mut runtime = Runtime::new();
-    let mut file = File::open(Path::new::<String>(&args.init)).expect("Failed to open init file");
-    let mut r = BufReader::new(&mut file);
+    let image = ImageReader::open(Path::new::<String>(&args.input))
+        .expect("Failed to open input image")
+        .decode()
+        .expect("Failed to decode input image");
+    let mut init_file =
+        File::open(Path::new::<String>(&args.init)).expect("Failed to open init file");
+    let mut r = BufReader::new(&mut init_file);
     let init = runtime
         .load_from_reader(&mut r)
         .expect("Failed to process init file");
@@ -95,9 +104,18 @@ fn ewimops_main(args: &Cli) {
     }
     let mut rng = SmallRng::from_entropy();
     let mut ew = DenseGrid::new(&mut rng, (672, 424));
+    ew.blit_image(&image.into_rgba8());
     *ew.get_mut(0).unwrap() = init;
-    for _ in 0..1000 {
+    for _ in 0..1000000 {
         Runtime::execute(&mut ew, &runtime.code_map).expect("Failed to execute");
         ew.reset();
+    }
+    if let Some(output) = &args.output {
+        let mut im = DynamicImage::new_rgba8(672, 424);
+        ew.unblit_image(im.as_mut_rgba8().unwrap());
+        let mut file = fs::File::create(Path::new::<String>(output))
+            .expect("Failed to create output image file");
+        im.write_to(&mut file, image::ImageOutputFormat::Png)
+            .expect("Failed to write output image");
     }
 }
