@@ -266,6 +266,7 @@ impl Compiler {
             Instruction::JumpZero(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
             Instruction::JumpNonZero(x) => w.write_u16::<BigEndian>(label_map[x.ast()]),
             Instruction::SetPaint | Instruction::GetPaint => Ok(()),
+            Instruction::Rand => Ok(()),
         }
         .map_err(|x| x.into())
     }

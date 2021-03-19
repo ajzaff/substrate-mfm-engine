@@ -210,3 +210,4 @@ Numbered arguments presented in reverse-polish come from the stack. Named argume
 |`[0] jumpnonzero [LABEL]`|Jump to `[LABEL]` iff `[0] != 0`.|
 |`[0] setpaint`|Set the paint at this site to the 32-bit color `[0]`.|
 |`getpaint`|Get the paint at this site.|
+|`rand`|Push a uniform random integer in the range `[0, 1<<96)` onto the stack.|

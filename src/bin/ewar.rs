@@ -10,6 +10,8 @@ mod ast;
 use crate::runtime::mfm::{debug_event_window, EventWindow, MinimalEventWindow};
 use crate::runtime::Runtime;
 use clap::arg_enum;
+use rand::rngs::SmallRng;
+use rand::SeedableRng;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -140,7 +142,8 @@ fn ewar_main(args: &Cli) {
     .load_from_reader(&mut r)
     .expect("Failed to process input file");
 
-  let mut ew = MinimalEventWindow::new();
+  let mut rng = SmallRng::from_entropy();
+  let mut ew = MinimalEventWindow::new(&mut rng);
   *ew.get_mut(0).unwrap() = atom;
   Runtime::execute(&mut ew, &runtime.code_map).expect("Failed to execute");
   debug_event_window(&ew, &mut std::io::stdout(), &runtime.type_map)

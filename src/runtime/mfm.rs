@@ -65,21 +65,23 @@ pub trait EventWindow {
     fn get_paint_mut(&mut self) -> &mut color::Color;
 }
 
-pub struct MinimalEventWindow {
+pub struct MinimalEventWindow<'a, R: RngCore> {
     data: [Const; 41],
     paint: [color::Color; 41],
+    rng: &'a mut R,
 }
 
-impl MinimalEventWindow {
-    pub fn new() -> Self {
+impl<'a, R: RngCore> MinimalEventWindow<'a, R> {
+    pub fn new(rng: &'a mut R) -> Self {
         Self {
             data: [0.into(); 41],
             paint: [0.into(); 41],
+            rng: rng,
         }
     }
 }
 
-impl EventWindow for MinimalEventWindow {
+impl<R: RngCore> EventWindow for MinimalEventWindow<'_, R> {
     fn reset(&mut self) {}
 
     fn get(&self, i: usize) -> Const {
@@ -100,6 +102,18 @@ impl EventWindow for MinimalEventWindow {
 
     fn get_paint_mut(&mut self) -> &mut color::Color {
         self.paint.get_mut(0).unwrap()
+    }
+}
+
+pub trait Rand {
+    fn rand(&mut self) -> Const;
+}
+
+impl<'a, R: RngCore> Rand for MinimalEventWindow<'a, R> {
+    fn rand(&mut self) -> Const {
+        let mut a: u128 = (self.rng.next_u64() as u128) << 64;
+        a |= self.rng.next_u32() as u128;
+        a.into()
     }
 }
 
@@ -307,6 +321,14 @@ impl<R: RngCore> EventWindow for DenseGrid<'_, R> {
 
     fn get_paint_mut(&mut self) -> &mut color::Color {
         self.paint.get_mut(self.origin).unwrap()
+    }
+}
+
+impl<'a, R: RngCore> Rand for DenseGrid<'a, R> {
+    fn rand(&mut self) -> Const {
+        let mut a: u128 = (self.rng.next_u64() as u128) << 64;
+        a |= self.rng.next_u32() as u128;
+        a.into()
     }
 }
 

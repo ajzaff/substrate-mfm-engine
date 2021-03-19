@@ -7,6 +7,7 @@ use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use log::trace;
 use mfm::{EventWindow, Metadata};
+use rand::RngCore;
 use std::collections::HashMap;
 use std::io;
 use thiserror;
@@ -256,6 +257,7 @@ impl<'input> Runtime<'input> {
       85 => Instruction::JumpNonZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpNonZero
       86 => Instruction::SetPaint,
       87 => Instruction::GetPaint,
+      88 => Instruction::Rand,
       i => return Err(Error::BadInstructionOpCode(i)),
     };
     code.push(instr);
@@ -315,7 +317,7 @@ impl<'input> Runtime<'input> {
     Ok(((type_num as u128) << 80).into())
   }
 
-  pub fn execute<T: mfm::EventWindow>(
+  pub fn execute<T: mfm::EventWindow + mfm::Rand>(
     ew: &mut T,
     code_map: &HashMap<u16, Vec<Instruction<'input>>>,
   ) -> Result<(), Error> {
@@ -590,6 +592,9 @@ impl<'input> Runtime<'input> {
         }
         Instruction::GetPaint => {
           cursor.op_stack.push(ew.get_paint().bits().into());
+        }
+        Instruction::Rand => {
+          cursor.op_stack.push(ew.rand());
         }
       }
       cursor.ip += 1;

@@ -165,6 +165,7 @@ pub enum Instruction<'input> {
     JumpNonZero(Arg<&'input str, u16>),
     SetPaint,
     GetPaint,
+    Rand,
 }
 
 impl Instruction<'_> {
@@ -258,6 +259,7 @@ impl Instruction<'_> {
             Self::JumpNonZero(_) => 85,
             Self::SetPaint => 86,
             Self::GetPaint => 87,
+            Self::Rand => 88,
         }
     }
 }

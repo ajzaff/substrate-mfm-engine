@@ -124,6 +124,7 @@ match {
     "jumpnonzero",
     "setpaint",
     "getpaint",
+    "rand",
 
     // Skip whitespace and comments:
     r"\s*" => {},
@@ -265,8 +266,9 @@ pub Instruction: Node<'input> = {
     "jumprelativeoffset" => Node::Instruction(Instruction::JumpRelativeOffset),
     "jumpzero" <i:Ident> => Node::Instruction(Instruction::JumpZero(Arg::Ast(i))),
     "jumpnonzero" <i:Ident> => Node::Instruction(Instruction::JumpNonZero(Arg::Ast(i))),
-    "setpaint" => Node::Instruction(Instruction::GetPaint),
+    "setpaint" => Node::Instruction(Instruction::SetPaint),
     "getpaint" => Node::Instruction(Instruction::GetPaint),
+    "rand" => Node::Instruction(Instruction::Rand),
 }
 
 FileHeader: Vec<Node<'input>> = {
