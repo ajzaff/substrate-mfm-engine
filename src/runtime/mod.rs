@@ -358,7 +358,9 @@ impl<'input> Runtime<'input> {
         Instruction::SetSite => {
           let c = cursor.op_stack.pop().unwrap();
           let i: usize = cursor.op_stack.pop().unwrap().into();
-          *ew.get_mut(i).unwrap() = c;
+          if let Some(site) = ew.get_mut(i) {
+            *site = c;
+          }
         }
         Instruction::SetField(f) => {
           let mut b = cursor.op_stack.pop().unwrap();
@@ -565,14 +567,15 @@ impl<'input> Runtime<'input> {
         }
         Instruction::JumpRelativeOffset => {
           let a = cursor.op_stack.pop().unwrap();
+          assert!(!a.is_zero());
           match a {
             Const::Unsigned(x) => cursor.ip += x as usize,
             Const::Signed(_) => {
               let amount: usize = a.abs_saturating().into();
-              cursor.ip -= amount;
+              cursor.ip += amount;
             }
           }
-          break;
+          continue;
         }
         Instruction::JumpZero(x) => {
           if cursor.op_stack.pop().unwrap().is_zero() {

@@ -7,7 +7,7 @@ mod base;
 #[path = "../ast.rs"]
 mod ast;
 
-use crate::runtime::mfm::{DenseGrid, EventWindow};
+use crate::runtime::mfm::{EventWindow, SparseGrid};
 use crate::runtime::Runtime;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, RgbaImage};

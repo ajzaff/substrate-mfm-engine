@@ -10,6 +10,7 @@ build = "build.rs" # LALRPOP preprocessing
 lalrpop = "0.19.4"
 
 [dependencies]
+indexmap = "1.6"
 image = "0.23"
 stderrlog = "0.5"
 log = "0.4"

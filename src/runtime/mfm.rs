@@ -5,6 +5,8 @@ use crate::base::color::Color;
 use crate::base::FieldSelector;
 use colored::*;
 use image::RgbaImage;
+use indexmap::map::Entry;
+use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use log::trace;
 use rand::RngCore;
@@ -359,6 +361,145 @@ impl<R: RngCore> Blit for DenseGrid<'_, R> {
             for y in 0..min(self.size.height, height as usize) {
                 let (r, g, b, a) = self.paint[y * self.size.width + x].components();
                 *im.get_pixel_mut(x as u32, y as u32) = [r, g, b, a].into();
+            }
+        }
+    }
+}
+
+pub struct SparseGrid<'a, R: RngCore> {
+    data: IndexMap<usize, Const>,
+    paint: IndexMap<usize, Color>,
+    size: Bounds,
+    scale: usize,
+    origin: usize,
+    rng: &'a mut R,
+}
+
+impl<'a, R: RngCore> SparseGrid<'a, R> {
+    pub fn new(rng: &'a mut R, size: (usize, usize)) -> Self {
+        Self::with_scale(rng, 1, size)
+    }
+
+    pub fn with_scale(rng: &'a mut R, scale: usize, size: (usize, usize)) -> Self {
+        Self {
+            data: IndexMap::new(),
+            paint: IndexMap::new(),
+            size: size.into(),
+            scale: scale,
+            origin: rng.next_u64() as usize % (size.0 * size.1),
+            rng: rng,
+        }
+    }
+}
+
+impl<R: RngCore> EventWindow for SparseGrid<'_, R> {
+    fn reset(&mut self) {
+        loop {
+            if self.data.len() == 0 {
+                self.origin = 0;
+                return;
+            }
+            let i = self.rng.next_u64() as usize % self.data.len();
+            let (k, v) = self.data.get_index_mut(i).unwrap();
+            if !v.is_zero() {
+                self.origin = *k;
+                return;
+            } else {
+                self.data.swap_remove_index(i);
+            }
+        }
+    }
+
+    fn get(&self, i: usize) -> Const {
+        if let Some(wi) = WINDOW_OFFSETS.get(i) {
+            let i = (self.origin as isize) + wi.1 * self.size.width as isize + wi.0;
+            if i >= 0 {
+                return self.data.get(&(i as usize)).map(|x| *x).unwrap_or(0.into());
+            }
+        }
+        0.into()
+    }
+
+    fn get_mut(&mut self, i: usize) -> Option<&mut Const> {
+        let wi = WINDOW_OFFSETS.get(i)?;
+        let i = (self.origin as isize) + wi.1 * self.size.width as isize + wi.0;
+        if i >= 0 {
+            match self.data.entry(i as usize) {
+                Entry::Occupied(o) => Some(o.into_mut()),
+                Entry::Vacant(v) => Some(v.insert(0.into())),
+            }
+        } else {
+            None
+        }
+    }
+
+    fn swap(&mut self, i: usize, j: usize) {
+        let x = {
+            let x = self.get_mut(i);
+
+            if x.is_none() {
+                return;
+            }
+            x.unwrap() as *mut Const
+        };
+        let y = {
+            let y = self.get_mut(j);
+            if y.is_none() {
+                return;
+            }
+            y.unwrap() as *mut Const
+        };
+        unsafe {
+            std::ptr::swap(x, y);
+        }
+    }
+
+    fn get_paint(&self) -> color::Color {
+        self.paint.get(&self.origin).map(|x| *x).unwrap_or(0.into())
+    }
+
+    fn get_paint_mut(&mut self) -> &mut color::Color {
+        match self.paint.entry(self.origin) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => v.insert(0.into()),
+        }
+    }
+}
+
+impl<'a, R: RngCore> Rand for SparseGrid<'a, R> {
+    fn rand(&mut self) -> Const {
+        let mut a: u128 = (self.rng.next_u64() as u128) << 64;
+        a |= self.rng.next_u32() as u128;
+        a.into()
+    }
+}
+
+impl<R: RngCore> Blit for SparseGrid<'_, R> {
+    fn blit_image(&mut self, im: &RgbaImage) {
+        let (width, height) = im.dimensions();
+        for x in 0..min(self.size.width, width as usize) {
+            for y in 0..min(self.size.height, height as usize) {
+                let pix = im.get_pixel(x as u32, y as u32);
+                let mut c = (pix.0[0] as u32) << 24;
+                c |= (pix.0[1] as u32) << 16;
+                c |= (pix.0[2] as u32) << 8;
+                c |= pix.0[3] as u32;
+                match self.paint.entry(y * self.size.width + x) {
+                    Entry::Occupied(o) => *o.into_mut() = c.into(),
+                    Entry::Vacant(v) => *v.insert(0.into()) = c.into(),
+                }
+            }
+        }
+    }
+
+    fn unblit_image(&self, im: &mut RgbaImage) {
+        let (width, height) = im.dimensions();
+        for x in 0..min(self.size.width, width as usize) {
+            for y in 0..min(self.size.height, height as usize) {
+                if let Some(c) = self.paint.get(&(y * self.size.width + x)) {
+                    let (r, g, b, a) = c.components();
+                    *im.get_pixel_mut(x as u32, y as u32) = [r, g, b, a].into();
+                }
             }
         }
     }

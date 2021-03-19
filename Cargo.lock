@@ -822,6 +822,7 @@ dependencies = [
  "colored",
  "enquote",
  "image",
+ "indexmap",
  "lalrpop",
  "lalrpop-util",
  "lazy_static",

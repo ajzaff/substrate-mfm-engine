@@ -47,17 +47,18 @@
   push8                        ; i
 check_done_loop:
   dup                          ; i i
-  getsitefield done            ; #i.done
-  dup
-  getsitefield type            ; #i.type
+  getsitefield done            ; i #i.done
+  over                         ; ... i
+  getsitefield type            ; ... #i.type
   gettype "EdgeDetect"
-  equal
-  dup
-  xor
-  or                           ; #i.done || %"EdgeDetect" != #i.type
+  equal                        ; i #i.done #i.type == %"EdgeDetect"
+  push1
+  xor                          ; i #i.done #i.type != %"EdgeDetect"
+  or                           ; i #i.done || %"EdgeDetect" != #i.type
   jumpzero store_paint_break
   push1
   sub                          ; i--
+  dup
   jumpnonzero check_done_loop
                                ; Everyone is done... Let's self-destruct.
 self_destruct:
@@ -67,15 +68,16 @@ self_destruct:
   exit                         ; Bye!
 
 store_paint_break: pop         ; From: check_done_loop
-store_paint:                   ; Otherwise proceed normally. Store the site paint into our `paint` field.
+store_paint:                   ; Otherwise proceed normally. Store the site paint into our `paint` field
+                               ; and mark ourselves as `ready` to contribute to convolutions.
   push 0
   getpaint
   setsitefield paint           ; #0.paint = getpaint()
   push0
   push1
   setsitefield ready           ; #0.ready = 1
-                               ; The ready_loop makes sure all neighbors are present to begin the
-                               ; convolution. If not, we will create them later.
+                               ; The ready_loop makes sure all neighbors are present and `ready` to begin
+                               ; the convolution. If neighbors are missing, we will create them first.
   push8
 ready_loop:
   dup                          ; i i
@@ -90,6 +92,7 @@ ready_loop:
   jumpzero reproduce           ; We're not ready to convolve; reproduce.
   push1
   sub                          ; i--
+  dup
   jumpnonzero ready_loop       ; break
 
                                ; The convolution operation begins here:
@@ -209,8 +212,23 @@ reproduce: pop                 ; From: ready_loop. Spread myself.
 reproduce_loop:
   over
   over                         ; a i a i
+  dup
+  getsitefield type            ; #i.type
+  gettype "EdgeDetect"
+  equal                        ; #i.type == %"EdgeDetect"
+  push1
+  add                          ; (#i.type == %"EdgeDetect") + 1; [1, 2]
+  push3
+  mul                          ;          ...                    [3, 6]
+  jumprelativeoffset
+  nop
+  nop
   swap
-  setsite                      ; #i = a
+  setsite                      ; #i = a; a i
+  jump reproduce_iter
+  pop                          ; a i i
+  pop                          ; a i
+reproduce_iter:
   push1
   sub                          ; a i-1
   dup
