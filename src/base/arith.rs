@@ -100,10 +100,7 @@ impl Const {
         let is_neg = self.is_neg();
         match self {
             Self::Unsigned(x) => {
-                let ulimit = (1u128 << i) - 1;
-                if *x > ulimit {
-                    *x = ulimit;
-                }
+                *x &= (1u128 << i) - 1;
             }
             Self::Signed(x) => {
                 let ulimit = (1u128 << (i - 1)) - 1;

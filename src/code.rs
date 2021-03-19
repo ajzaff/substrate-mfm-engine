@@ -6,6 +6,7 @@ use byteorder::BigEndian;
 use byteorder::WriteBytesExt;
 use lalrpop_util;
 use lalrpop_util::lalrpop_mod;
+use log::trace;
 use std::collections::HashMap;
 use std::io;
 use std::str::FromStr;
@@ -275,6 +276,7 @@ impl Compiler {
         src: &'input str,
     ) -> Result<(), CompileError<'input>> {
         let ast = substrate::FileParser::new().parse(src)?;
+        trace!("{:?}", ast);
 
         if ast.body.len() > Self::MAX_CODE_SIZE {
             return Err(CompileError::MaxCodeSize);
@@ -295,6 +297,11 @@ impl Compiler {
             }
             ln
         };
+
+        trace!("{:?}", label_map);
+        trace!("{:?}", const_map);
+        trace!("{:?}", field_map);
+        trace!("{:?}", self.type_map);
 
         w.write_u32::<BigEndian>(MAGIC_NUMBER)?;
         w.write_u16::<BigEndian>(Self::MINOR_VERSION)?;

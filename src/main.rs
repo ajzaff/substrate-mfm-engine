@@ -35,10 +35,26 @@ struct Cli {
         default_value = "ephemeral"
     )]
     build_tag: String,
+
+    #[structopt(short = "q", long = "quiet", help = "Silence all logging output.")]
+    quiet: bool,
+
+    #[structopt(
+        short = "v",
+        long = "verbose",
+        help = "Configure logging verbosity",
+        parse(from_occurrences)
+    )]
+    verbose: usize,
 }
 
 fn main() {
     let args = Cli::from_args();
+    stderrlog::new()
+        .quiet(args.quiet)
+        .verbosity(args.verbose)
+        .init()
+        .unwrap();
     ewac_main(&args);
 }
 

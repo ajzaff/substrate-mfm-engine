@@ -39,7 +39,7 @@
 check_done_loop:
   dup                          // i i
   getsitefield done            // #i.done
-  jumpzero store_paint
+  jumpzero store_paint_break
   push1
   sub                          // i--
   jumpnonzero check_done_loop
@@ -50,9 +50,11 @@ self_destruct:
   setsite                      // #0 = 0
   exit                         // Bye!
 
+store_paint_break: pop         // From: check_done_loop
 store_paint:                   // Otherwise proceed normally. Store the site paint into our `paint` field.
+  push 0
   getpaint
-  setfield paint               // #0.paint = getpaint()
+  setsitefield paint           // #0.paint = getpaint()
 
                                // The ready_loop makes sure all neighbors are present to begin the
                                // convolution. If not, we will create them later.
@@ -92,18 +94,19 @@ done:
   setsitefield done            // #0.done = 1
   exit                         // Bye!
 
-reproduce:                     // Spread myself.
-  gettype "EdgeDetect"
+reproduce: pop                 // From: ready_loop. Spread myself.
   push0
+  gettype "EdgeDetect"
   setfield type                // Stack now contains a new empty EdgeDetect atom.
   push8                        // a i
 reproduce_loop:
   over
   over                         // a i a i
+  swap
   setsite                      // #i = a
-  dup
   push1
   sub                          // a i-1
+  dup
   jumpnonzero reproduce_loop
 
 quit:                          // Goodbye!

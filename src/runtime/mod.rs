@@ -172,7 +172,7 @@ impl<'input> Runtime<'input> {
       1 => Instruction::Exit,      // Exit
       2 => Instruction::SwapSites, // SwapSites
       3 => Instruction::SetSite,   // SetSite
-      4 => Instruction::SetSite,   // SetField
+      4 => Instruction::SetField(Arg::Runtime(r.read_u16::<BigEndian>()?.into())), // SetField
       5 => Instruction::SetSiteField(Arg::Runtime(r.read_u16::<BigEndian>()?.into())), // SetSiteField
       6 => Instruction::GetSite,                                                       // GetSite
       7 => Instruction::GetField(Arg::Runtime(r.read_u16::<BigEndian>()?.into())),     // GetField
@@ -300,11 +300,15 @@ impl<'input> Runtime<'input> {
       Self::read_metadata(r, &mut elem)?;
     }
 
+    trace!("{:?}", elem);
+
     let mut code = Vec::new();
 
     for _ in 0..r.read_u16::<BigEndian>()? {
       Self::read_instruction(r, &mut code)?;
     }
+
+    trace!("{:?}", code);
 
     self.type_map.insert(type_num, elem);
     self.code_map.insert(type_num, code);
@@ -362,9 +366,12 @@ impl<'input> Runtime<'input> {
           cursor.op_stack.push(a | (b << fi.offset));
         }
         Instruction::SetSiteField(f) => {
+          let mut c = cursor.op_stack.pop().unwrap();
           let i: usize = cursor.op_stack.pop().unwrap().into();
+          let fi = f.runtime();
+          c.truncate(fi.length);
           if let Some(a) = ew.get_mut(i) {
-            *a = a.apply(f.runtime());
+            *a = *a | (c << fi.offset);
           }
         }
         Instruction::GetSite => {
