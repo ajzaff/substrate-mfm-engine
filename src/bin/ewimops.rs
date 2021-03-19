@@ -103,7 +103,7 @@ fn ewimops_main(args: &Cli) {
             .expect("Failed to process op file");
     }
     let mut rng = SmallRng::from_entropy();
-    let mut ew = DenseGrid::new(&mut rng, (672, 424));
+    let mut ew = SparseGrid::new(&mut rng, (384, 256));
     ew.blit_image(&image.into_rgba8());
     *ew.get_mut(0).unwrap() = init;
     for _ in 0..1000000 {
@@ -111,7 +111,7 @@ fn ewimops_main(args: &Cli) {
         ew.reset();
     }
     if let Some(output) = &args.output {
-        let mut im = DynamicImage::new_rgba8(672, 424);
+        let mut im = DynamicImage::new_rgba8(384, 256);
         ew.unblit_image(im.as_mut_rgba8().unwrap());
         let mut file = fs::File::create(Path::new::<String>(output))
             .expect("Failed to create output image file");
