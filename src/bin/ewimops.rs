@@ -81,15 +81,23 @@ fn main() {
 
 fn ewimops_main(args: &Cli) {
     let mut runtime = Runtime::new();
-
-    let mut file = File::open(Path::new::<String>(&args.init)).expect("Failed to open input file");
+    let mut file = File::open(Path::new::<String>(&args.init)).expect("Failed to open init file");
     let mut r = BufReader::new(&mut file);
-    let atom = runtime
+    let init = runtime
         .load_from_reader(&mut r)
-        .expect("Failed to process input file");
+        .expect("Failed to process init file");
+    for op in &args.ops {
+        let mut file = File::open(Path::new::<String>(op)).expect("Failed to open op file");
+        let mut r = BufReader::new(&mut file);
+        runtime
+            .load_from_reader(&mut r)
+            .expect("Failed to process op file");
+    }
     let mut rng = SmallRng::from_entropy();
     let mut ew = DenseGrid::new(&mut rng, (672, 424));
-    for _ in 0..100 {
+    *ew.get_mut(0).unwrap() = init;
+    for _ in 0..1000 {
+        Runtime::execute(&mut ew, &runtime.code_map).expect("Failed to execute");
         ew.reset();
     }
 }

@@ -315,7 +315,7 @@ impl<'input> Runtime<'input> {
     ew: &mut T,
     code_map: &HashMap<u16, Vec<Instruction<'input>>>,
   ) -> Result<(), Error> {
-    let my_atom = ew.get(0).ok_or(Error::NoElement)?;
+    let my_atom = ew.get(0);
     let my_type: u16 = my_atom.apply(&FieldSelector::TYPE).into();
     let code = code_map
       .get(&my_type)
@@ -363,11 +363,12 @@ impl<'input> Runtime<'input> {
         }
         Instruction::SetSiteField(f) => {
           let i: usize = cursor.op_stack.pop().unwrap().into();
-          let a = ew.get_mut(i).unwrap();
-          *a = a.apply(f.runtime());
+          if let Some(a) = ew.get_mut(i) {
+            *a = a.apply(f.runtime());
+          }
         }
         Instruction::GetSite => {
-          let v = *ew.get(cursor.op_stack.pop().unwrap().into()).unwrap();
+          let v = ew.get(cursor.op_stack.pop().unwrap().into());
           cursor.op_stack.push(v);
         }
         Instruction::GetField(f) => {
@@ -376,7 +377,7 @@ impl<'input> Runtime<'input> {
         }
         Instruction::GetSiteField(f) => {
           let i: usize = cursor.op_stack.pop().unwrap().into();
-          cursor.op_stack.push(ew.get(i).unwrap().apply(f.runtime()));
+          cursor.op_stack.push(ew.get(i).apply(f.runtime()));
         }
         Instruction::GetType(x) => cursor.op_stack.push((*x.runtime()).into()),
         Instruction::GetParameter(c) => {
@@ -578,11 +579,10 @@ impl<'input> Runtime<'input> {
         }
         Instruction::SetPaint => {
           let c: u32 = cursor.op_stack.pop().unwrap().into();
-          *ew.get_paint_mut().unwrap() = c.into();
+          *ew.get_paint_mut() = c.into();
         }
         Instruction::GetPaint => {
-          let c = ew.get_paint().unwrap();
-          cursor.op_stack.push(c.bits().into());
+          cursor.op_stack.push(ew.get_paint().bits().into());
         }
       }
       cursor.ip += 1;
