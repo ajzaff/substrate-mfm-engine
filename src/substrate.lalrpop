@@ -28,7 +28,7 @@ match {
     ".desc",
     ".author",
     ".license",
-    r".radius [0-4]",
+    r"\.radius [0-4]",
     ".bgcolor",
     ".fgcolor",
     ".symmetries",
@@ -127,7 +127,7 @@ match {
 
     // Skip whitespace and comments:
     r"\s*" => {},
-    r"[;]//[^\n\r]*[\n\r]*" => {}, // `// comment`
+    r";[^\n\r]*[\n\r]*" => {}, // `; comment`
 }
 
 Ident: &'input str = <s:r"[_a-z][_a-zA-Z]*"> => s;
@@ -164,7 +164,7 @@ pub Metadata: Node<'input> = {
     ".desc" <i:String> => Node::Metadata(Metadata::Desc(i)),
     ".author" <i:String> => Node::Metadata(Metadata::Author(i)),
     ".license" <i:String> => Node::Metadata(Metadata::License(i)),
-    <p:r".radius [0-4]"> => Node::Metadata(Metadata::Radius(u8::from_str(&p[8..]).unwrap())),
+    <p:r"\.radius [0-4]"> => Node::Metadata(Metadata::Radius(u8::from_str(&p[8..]).unwrap())),
     ".bgcolor" <i:String> => Node::Metadata(Metadata::BgColor(i)),
     ".fgcolor" <i:String> => Node::Metadata(Metadata::FgColor(i)),
     ".symmetries" <s:Symmetries> => Node::Metadata(Metadata::Symmetries(s)),

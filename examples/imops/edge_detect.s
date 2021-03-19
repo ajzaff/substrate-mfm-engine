@@ -11,9 +11,9 @@
   .field r,   24,8
   .field g,   16,8
   .field b,   8,8
-  .field rr   32,16
-  .field gg   16,16
-  .field bb   0,16
+  .field rr,  32,16
+  .field gg,  16,16
+  .field bb,  0,16
 .field done,  40,1
 
 ; Edge detection is a simple operation which finds sharp changes in brightness in an image.
