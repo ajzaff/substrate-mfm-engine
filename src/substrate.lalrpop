@@ -127,7 +127,7 @@ match {
 
     // Skip whitespace and comments:
     r"\s*" => {},
-    r"//[^\n\r]*[\n\r]*" => {}, // `// comment`
+    r"[;]//[^\n\r]*[\n\r]*" => {}, // `// comment`
 }
 
 Ident: &'input str = <s:r"[_a-z][_a-zA-Z]*"> => s;
