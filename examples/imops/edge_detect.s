@@ -14,6 +14,7 @@
   .field rr,  32,16
   .field gg,  16,16
   .field bb,  0,16
+.field ready, 50,1
 .field done,  40,1
 
 ; Edge detection is a simple operation which finds sharp changes in brightness in an image.
@@ -33,7 +34,9 @@
 ; One quirk is the site paint is only accessible at site 0, so atoms must expose their
 ; site paint in a field named `paint`.
 ;
-; The `done` bit indicates we've writen our result and are waiting to self-destruct.
+; Fields:
+;   * `ready` indicates we're advertising our site paint and waiting for neighbors.
+;   * `done` indicates we've writen our result and are waiting to self-destruct.
 
                                ; Have we convolved already? Have our neighbors convolved?
                                ; We might be able to self destruct.
@@ -68,15 +71,22 @@ store_paint:                   ; Otherwise proceed normally. Store the site pain
   push 0
   getpaint
   setsitefield paint           ; #0.paint = getpaint()
-
+  push0
+  push1
+  setsitefield ready           ; #0.ready = 1
                                ; The ready_loop makes sure all neighbors are present to begin the
                                ; convolution. If not, we will create them later.
   push8
 ready_loop:
   dup                          ; i i
-  getsitefield type            ; i.type
+  getsitefield type            ; i i.type
   gettype "EdgeDetect"
-  equal                        ; i.type == %"EdgeDetect"
+  equal                        ; i i.type == %"EdgeDetect"
+  over
+  getsitefield ready           ; ... i.ready
+  push1
+  equal                        ; #i.ready == 1
+  and                          ; i #i.type == %"EdgeDetect" && #i.ready == 1
   jumpzero reproduce           ; We're not ready to convolve; reproduce.
   push1
   sub                          ; i--
