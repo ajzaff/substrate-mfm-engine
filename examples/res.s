@@ -9,12 +9,12 @@
 .symmetries ALL
 .radius 1
 
-  gettype "Empty"    /* %Empty */
+  gettype "Empty"    // %Empty
   push1
-  getsitefield type  /* #1$type */
-  equal              /* #1$type == %Empty */
+  getsitefield type  // #1$type
+  equal              // #1$type == %Empty
   jumpzero quit
   push0
   push1
-  swapsites          /* swap(#0, #1) */
+  swapsites          // swap(#0, #1)
 quit:

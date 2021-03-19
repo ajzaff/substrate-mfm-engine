@@ -10,5 +10,5 @@
 
     push1
     push0
-    getsite   /* #0 */
-    setsite   /* #1 = #0 */
+    getsite   // #0
+    setsite   // #1 = #0
