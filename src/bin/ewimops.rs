@@ -7,10 +7,10 @@ mod base;
 #[path = "../ast.rs"]
 mod ast;
 
-use crate::runtime::mfm::{EventWindow, SparseGrid};
-use crate::runtime::Runtime;
+use crate::runtime::mfm::{DenseGrid, EventWindow, SparseGrid};
+use crate::runtime::{Cursor, Runtime};
 use image::io::Reader as ImageReader;
-use image::{DynamicImage, RgbaImage};
+use image::{DynamicImage, GenericImageView};
 use log::trace;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
@@ -103,15 +103,17 @@ fn ewimops_main(args: &Cli) {
             .expect("Failed to process op file");
     }
     let mut rng = SmallRng::from_entropy();
-    let mut ew = SparseGrid::new(&mut rng, (384, 256));
+    let (width, height) = image.dimensions();
+    let mut ew = SparseGrid::new(&mut rng, (width as usize, height as usize));
+    let mut cursor = Cursor::new();
     ew.blit_image(&image.into_rgba8());
     *ew.get_mut(0).unwrap() = init;
     for _ in 0..1000000 {
-        Runtime::execute(&mut ew, &runtime.code_map).expect("Failed to execute");
+        Runtime::execute(&mut ew, &mut cursor, &runtime.code_map).expect("Failed to execute");
         ew.reset();
     }
     if let Some(output) = &args.output {
-        let mut im = DynamicImage::new_rgba8(384, 256);
+        let mut im = DynamicImage::new_rgba8(width, height);
         ew.unblit_image(im.as_mut_rgba8().unwrap());
         let mut file = fs::File::create(Path::new::<String>(output))
             .expect("Failed to create output image file");

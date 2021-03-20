@@ -11,6 +11,7 @@
   .field r,   24,8
   .field g,   16,8
   .field b,   8,8
+  .field a,   0,8
   .field rr,  32,16
   .field gg,  16,16
   .field bb,  0,16
@@ -196,6 +197,8 @@ convolve_loop:
   dup
   getfield bb
   setfield b                   ; acc.b = acc.bb
+  push 0xff
+  setfield a                   ; acc.a = 0xff
   setpaint                     ; Store the result in the site paint and set our done status.
 
 done:

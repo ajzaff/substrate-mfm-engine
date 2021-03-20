@@ -49,7 +49,7 @@ pub fn load_from_bytes<'input>(bytes: &'input mut &[u8]) -> Result<Runtime<'inpu
 const MAGIC_NUMBER: u32 = 0x02030741;
 
 #[derive(Debug)]
-struct Cursor {
+pub struct Cursor {
   ip: usize,
   symmetries: Symmetries,
   symmetries_stack: Vec<Symmetries>,
@@ -58,7 +58,7 @@ struct Cursor {
 }
 
 impl Cursor {
-  fn new() -> Self {
+  pub fn new() -> Self {
     Self {
       ip: 0,
       symmetries: Symmetries::R000L,
@@ -319,6 +319,7 @@ impl<'input> Runtime<'input> {
 
   pub fn execute<T: mfm::EventWindow + mfm::Rand>(
     ew: &mut T,
+    cursor: &mut Cursor,
     code_map: &HashMap<u16, Vec<Instruction<'input>>>,
   ) -> Result<(), Error> {
     let my_atom = ew.get(0);
@@ -326,7 +327,7 @@ impl<'input> Runtime<'input> {
     let code = code_map
       .get(&my_type)
       .ok_or(Error::UnknownElement(my_type))?;
-    let mut cursor = Cursor::new();
+    cursor.reset();
     loop {
       if cursor.ip >= code.len() {
         // Handle implicit Ret:
