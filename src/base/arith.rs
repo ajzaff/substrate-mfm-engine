@@ -38,7 +38,7 @@ impl Const {
         }
     }
 
-    fn is_neg(&self) -> bool {
+    pub fn is_neg(&self) -> bool {
         match self {
             Self::Unsigned(_) => false,
             Self::Signed(x) => *x < 0,
@@ -80,14 +80,14 @@ impl Const {
         }
     }
 
-    pub fn abs_saturating(&self) -> Const {
+    pub fn abs(&self) -> Const {
         match self {
             Self::Unsigned(_) => *self,
             Self::Signed(x) => {
                 if *x < 0 {
-                    0i128.saturating_sub(*x).into()
+                    (0i128.saturating_sub(*x) as u128).into()
                 } else {
-                    (*x).into()
+                    (*x as u128).into()
                 }
             }
         }
@@ -397,5 +397,51 @@ mod tests {
         assert!(!Const::Unsigned(1).is_zero());
         assert!(!Const::Signed(1).is_zero());
         assert!(!Const::Signed(-1).is_zero());
+    }
+
+    #[test]
+    fn test_count_ones() {
+        assert_eq!(Const::Unsigned(0).count_ones(), 0);
+        assert_eq!(Const::Signed(0).count_ones(), 0);
+        assert_eq!(Const::Unsigned(1).count_ones(), 1);
+        assert_eq!(Const::Signed(1).count_ones(), 1);
+    }
+
+    #[test]
+    fn test_bitscanforward() {
+        assert_eq!(Const::Unsigned(0).bitscanforward(), 128);
+        assert_eq!(Const::Signed(0).bitscanforward(), 128);
+        assert_eq!(Const::Unsigned(3).bitscanforward(), 0);
+        assert_eq!(Const::Signed(3).bitscanforward(), 0);
+    }
+
+    #[test]
+    fn test_bitscanreverse() {
+        assert_eq!(Const::Unsigned(0).bitscanreverse(), 128);
+        assert_eq!(Const::Signed(0).bitscanreverse(), 128);
+        assert_eq!(Const::Unsigned(3).bitscanreverse(), 126);
+        assert_eq!(Const::Signed(3).bitscanreverse(), 126);
+    }
+
+    #[test]
+    fn test_is_neg() {
+        assert!(!Const::Unsigned(0).is_neg());
+        assert!(!Const::Unsigned(1).is_neg());
+        assert!(!Const::Signed(0).is_neg());
+        assert!(!Const::Signed(1).is_neg());
+        assert!(Const::Signed(-1).is_neg());
+    }
+
+    #[test]
+    fn test_abs() {
+        assert_eq!(Const::Unsigned(0).abs(), Const::Unsigned(0));
+        assert_eq!(Const::Unsigned(1).abs(), Const::Unsigned(1));
+        assert_eq!(Const::Signed(0).abs(), Const::Unsigned(0));
+        assert_eq!(Const::Signed(1).abs(), Const::Unsigned(1));
+        assert_eq!(Const::Signed(-1).abs(), Const::Unsigned(1));
+        assert_eq!(
+            Const::Signed(-1 << 127).abs(),
+            Const::Unsigned((1 << 127) - 1)
+        );
     }
 }

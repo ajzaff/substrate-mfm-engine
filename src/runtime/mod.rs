@@ -572,8 +572,17 @@ impl<'input> Runtime<'input> {
           match a {
             Const::Unsigned(x) => cursor.ip += x as usize,
             Const::Signed(_) => {
-              let amount: usize = a.abs_saturating().into();
-              cursor.ip += amount;
+              let amount = a.abs();
+              if amount.is_neg() {
+                if let Some(ip) = cursor.ip.checked_sub(amount.into()) {
+                  cursor.ip = ip;
+                } else {
+                  cursor.ip = u16::MAX as usize;
+                  continue;
+                }
+              } else {
+                cursor.ip = cursor.ip.saturating_add(amount.into());
+              }
             }
           }
           continue;
