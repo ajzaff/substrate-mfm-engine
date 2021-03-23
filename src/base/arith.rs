@@ -97,25 +97,34 @@ impl Const {
     pub fn truncate(&mut self, i: u8) {
         assert_ne!(i, 0);
 
-        let is_neg = self.is_neg();
-        match self {
-            Self::Unsigned(x) => {
-                *x &= (1u128 << i) - 1;
-            }
-            Self::Signed(x) => {
-                let ulimit = (1u128 << (i - 1)) - 1;
-                if is_neg {
-                    let u = !(*x as u128) + 1;
-                    if u > ulimit {
-                        *x = -(ulimit as i128) - 1;
+        if !self.is_neg() {
+            let v = self.as_u128_bits();
+            match self {
+                Self::Unsigned(x) => {
+                    if v >= 1u128 << i {
+                        *x = (1u128 << i) - 1;
                     }
-                } else {
-                    if *x as u128 > ulimit {
-                        *x = ulimit as i128;
+                }
+                Self::Signed(x) => {
+                    if i == 1 {
+                        *x = 0
+                    } else if v >= 1u128 << i - 1 {
+                        *x = ((1u128 << i - 1) - 1) as i128;
                     }
                 }
             }
+            return;
         }
+
+        if let Self::Signed(x) = self {
+            if i == 1 {
+                *x = 0
+            } else if *x < -1i128 << i - 1 {
+                *x = -1i128 << i - 1;
+            }
+            return;
+        }
+        unreachable!();
     }
 
     pub fn apply(self, f: &FieldSelector) -> Const {
@@ -443,5 +452,73 @@ mod tests {
             Const::Signed(-1 << 127).abs(),
             Const::Unsigned((1 << 127) - 1)
         );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_truncate_unsigned_panic() {
+        let mut x = Const::Unsigned(1);
+        x.truncate(0);
+    }
+
+    #[test]
+    fn test_truncate_unsigned() {
+        let mut x = Const::Unsigned(1);
+        x.truncate(1);
+        assert_eq!(x, Const::Unsigned(1));
+
+        x = Const::Unsigned(2);
+        x.truncate(1);
+        assert_eq!(x, Const::Unsigned(1));
+
+        x = Const::Unsigned(2);
+        x.truncate(3);
+        assert_eq!(x, Const::Unsigned(2));
+
+        x = Const::Unsigned(1 << 64);
+        x.truncate(20);
+        assert_eq!(x, Const::Unsigned((1 << 20) - 1));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_truncate_signed_panic() {
+        let mut x = Const::Signed(1);
+        x.truncate(0);
+    }
+
+    #[test]
+    fn test_truncate_signed() {
+        let mut x = Const::Signed(1);
+        x.truncate(1);
+        assert_eq!(x, Const::Signed(0));
+
+        x = Const::Signed(2);
+        x.truncate(1);
+        assert_eq!(x, Const::Signed(0));
+
+        x = Const::Signed(2);
+        x.truncate(3);
+        assert_eq!(x, Const::Signed(2));
+
+        x = Const::Signed(1 << 64);
+        x.truncate(20);
+        assert_eq!(x, Const::Signed((1 << 19) - 1));
+
+        x = Const::Signed(-1);
+        x.truncate(1);
+        assert_eq!(x, Const::Signed(0));
+
+        x = Const::Signed(-2);
+        x.truncate(1);
+        assert_eq!(x, Const::Signed(0));
+
+        x = Const::Signed(-2);
+        x.truncate(3);
+        assert_eq!(x, Const::Signed(-2));
+
+        x = Const::Signed(-1 << 64);
+        x.truncate(20);
+        assert_eq!(x, Const::Signed(-1 << 19));
     }
 }
