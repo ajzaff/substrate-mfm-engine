@@ -43,8 +43,8 @@ impl Metadata {
             authors: Vec::new(),
             licenses: Vec::new(),
             radius: 0,
-            fg_color: 0xffffffffu32.into(),
-            bg_color: 0u32.into(),
+            fg_color: 0xffffffff.into(),
+            bg_color: 0.into(),
             symmetries: 0.into(),
             field_map: HashMap::new(),
             parameter_map: HashMap::new(),
@@ -58,13 +58,13 @@ pub trait EventWindow {
 
     fn get(&self, i: usize) -> Const;
 
-    fn get_mut(&mut self, i: usize) -> Option<&mut Const>;
+    fn set(&mut self, i: usize, v: Const);
 
     fn swap(&mut self, i: usize, j: usize);
 
     fn get_paint(&self) -> color::Color;
 
-    fn get_paint_mut(&mut self) -> &mut color::Color;
+    fn set_paint(&mut self, c: color::Color);
 }
 
 pub struct MinimalEventWindow<'a, R: RngCore> {
@@ -90,20 +90,27 @@ impl<R: RngCore> EventWindow for MinimalEventWindow<'_, R> {
         self.data.get(i).map(|x| *x).unwrap_or(0.into())
     }
 
-    fn get_mut(&mut self, i: usize) -> Option<&mut Const> {
-        self.data.get_mut(i)
+    fn set(&mut self, i: usize, v: Const) {
+        if let Some(site) = self.data.get_mut(i) {
+            *site = v;
+        }
     }
 
     fn swap(&mut self, i: usize, j: usize) {
-        self.data.swap(i, j)
+        let n = self.data.len();
+        if i != j && i < n && j < n {
+            self.data.swap(i, j)
+        }
     }
 
     fn get_paint(&self) -> color::Color {
-        self.paint.get(0).map(|x| *x).unwrap()
+        *self.paint.get(0).unwrap_or(&0.into())
     }
 
-    fn get_paint_mut(&mut self) -> &mut color::Color {
-        self.paint.get_mut(0).unwrap()
+    fn set_paint(&mut self, c: color::Color) {
+        if let Some(color) = self.paint.get_mut(0) {
+            *color = c;
+        }
     }
 }
 
@@ -281,19 +288,20 @@ impl<R: RngCore> EventWindow for DenseGrid<'_, R> {
         if let Some(wi) = WINDOW_OFFSETS.get(i) {
             let i = (self.origin as isize) + wi.1 * self.size.width as isize + wi.0;
             if i >= 0 {
-                return self.data.get(i as usize).map(|x| *x).unwrap_or(0.into());
+                return *self.data.get(i as usize).unwrap_or(&0.into());
             }
         }
         0.into()
     }
 
-    fn get_mut(&mut self, i: usize) -> Option<&mut Const> {
-        let wi = WINDOW_OFFSETS.get(i)?;
-        let i = (self.origin as isize) + wi.1 * self.size.width as isize + wi.0;
-        if i >= 0 {
-            self.data.get_mut(i as usize)
-        } else {
-            None
+    fn set(&mut self, i: usize, v: Const) {
+        if let Some(wi) = WINDOW_OFFSETS.get(i) {
+            let i = (self.origin as isize) + wi.1 * self.size.width as isize + wi.0;
+            if i >= 0 {
+                if let Some(site) = self.data.get_mut(i as usize) {
+                    *site = v;
+                }
+            }
         }
     }
 
@@ -312,17 +320,20 @@ impl<R: RngCore> EventWindow for DenseGrid<'_, R> {
             return;
         }
         let i2 = (self.origin as isize) + w2.1 * self.size.width as isize + w2.0;
-        if i2 >= 0 {
+        let n = self.data.len() as isize;
+        if i1 != i2 && i2 >= 0 && i1 < n && i2 < n {
             self.data.swap(i1 as usize, i2 as usize);
         }
     }
 
     fn get_paint(&self) -> color::Color {
-        self.paint.get(self.origin).map(|x| *x).unwrap_or(0.into())
+        *self.paint.get(self.origin).unwrap_or(&0.into())
     }
 
-    fn get_paint_mut(&mut self) -> &mut color::Color {
-        self.paint.get_mut(self.origin).unwrap()
+    fn set_paint(&mut self, c: color::Color) {
+        if let Some(color) = self.paint.get_mut(self.origin) {
+            *color = c;
+        }
     }
 }
 
@@ -394,18 +405,10 @@ impl<'a, R: RngCore> SparseGrid<'a, R> {
 
 impl<R: RngCore> EventWindow for SparseGrid<'_, R> {
     fn reset(&mut self) {
-        loop {
-            if self.data.len() == 0 {
-                self.origin = 0;
-                return;
-            }
+        if self.data.len() > 0 {
             let i = self.rng.next_u64() as usize % self.data.len();
-            let (k, v) = self.data.get_index_mut(i).unwrap();
-            if !v.is_zero() {
+            if let Some((k, _)) = self.data.get_index(i) {
                 self.origin = *k;
-                return;
-            } else {
-                self.data.swap_remove_index(i);
             }
         }
     }
@@ -414,54 +417,50 @@ impl<R: RngCore> EventWindow for SparseGrid<'_, R> {
         if let Some(wi) = WINDOW_OFFSETS.get(i) {
             let i = (self.origin as isize) + wi.1 * self.size.width as isize + wi.0;
             if i >= 0 {
-                return self.data.get(&(i as usize)).map(|x| *x).unwrap_or(0.into());
+                return *self.data.get(&(i as usize)).unwrap_or(&0.into());
             }
         }
         0.into()
     }
 
-    fn get_mut(&mut self, i: usize) -> Option<&mut Const> {
-        let wi = WINDOW_OFFSETS.get(i)?;
-        let i = (self.origin as isize) + wi.1 * self.size.width as isize + wi.0;
-        if i >= 0 {
-            match self.data.entry(i as usize) {
-                Entry::Occupied(o) => Some(o.into_mut()),
-                Entry::Vacant(v) => Some(v.insert(0.into())),
+    fn set(&mut self, i: usize, v: Const) {
+        if let Some(wi) = WINDOW_OFFSETS.get(i) {
+            let i = (self.origin as isize) + wi.1 * self.size.width as isize + wi.0;
+            if i >= 0 {
+                if v.is_zero() {
+                    self.data.remove(&(i as usize));
+                } else {
+                    match self.data.entry(i as usize) {
+                        Entry::Occupied(o) => *o.into_mut() = v,
+                        Entry::Vacant(e) => {
+                            e.insert(v);
+                        }
+                    }
+                }
             }
-        } else {
-            None
         }
     }
 
     fn swap(&mut self, i: usize, j: usize) {
-        let x = {
-            let x = self.get_mut(i);
-
-            if x.is_none() {
-                return;
-            }
-            x.unwrap() as *mut Const
-        };
-        let y = {
-            let y = self.get_mut(j);
-            if y.is_none() {
-                return;
-            }
-            y.unwrap() as *mut Const
-        };
-        unsafe {
-            std::ptr::swap(x, y);
-        }
+        let t = self.get(i);
+        self.set(i, self.get(j));
+        self.set(j, t);
     }
 
     fn get_paint(&self) -> color::Color {
         self.paint.get(&self.origin).map(|x| *x).unwrap_or(0.into())
     }
 
-    fn get_paint_mut(&mut self) -> &mut color::Color {
-        match self.paint.entry(self.origin) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => v.insert(0.into()),
+    fn set_paint(&mut self, c: color::Color) {
+        if c.bits() == 0 {
+            self.paint.remove(&self.origin);
+        } else {
+            match self.paint.entry(self.origin) {
+                Entry::Occupied(o) => *o.into_mut() = c,
+                Entry::Vacant(v) => {
+                    v.insert(c);
+                }
+            }
         }
     }
 }

@@ -8,15 +8,15 @@
 .symmetries NONE
 .radius 1
 
-    push40           // [i:=40]
+    push40           ; [i:=40]
 loop:
-    dup              // [i,i]
-    push0            // [i,i,0]
-    getsite          // [i,i,#0]
+    dup              ; [i,i]
+    push0            ; [i,i,0]
+    getsite          ; [i,i,#0]
 kill:
-    setsite          // #i=#0; [i]
-    push1            // [i,1]
-    sub              // [i-1]
-    dup              // [i-1,i-1]
-    jumpnonzero loop // [i-1]
+    setsite          ; #i=#0; [i]
+    push1            ; [i,1]
+    sub              ; [i-1]
+    dup              ; [i-1,i-1]
+    jumpnonzero loop ; [i-1]
 quit:

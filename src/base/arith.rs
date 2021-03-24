@@ -128,7 +128,7 @@ impl Const {
     }
 
     pub fn apply(self, f: &FieldSelector) -> Const {
-        let mut x = self >> f.offset;
+        let mut x = (self >> f.offset) & ((1u128 << f.length) - 1).into();
         x.truncate(f.length);
         x
     }

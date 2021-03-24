@@ -359,9 +359,7 @@ impl<'input> Runtime<'input> {
         Instruction::SetSite => {
           let c = cursor.op_stack.pop().unwrap();
           let i: usize = cursor.op_stack.pop().unwrap().into();
-          if let Some(site) = ew.get_mut(i) {
-            *site = c;
-          }
+          ew.set(i, c);
         }
         Instruction::SetField(f) => {
           let mut b = cursor.op_stack.pop().unwrap();
@@ -375,9 +373,8 @@ impl<'input> Runtime<'input> {
           let i: usize = cursor.op_stack.pop().unwrap().into();
           let fi = f.runtime();
           c.truncate(fi.length);
-          if let Some(a) = ew.get_mut(i) {
-            *a = *a | (c << fi.offset);
-          }
+          let a = ew.get(i);
+          ew.set(i, a | (c << fi.offset))
         }
         Instruction::GetSite => {
           let v = ew.get(cursor.op_stack.pop().unwrap().into());
@@ -601,7 +598,7 @@ impl<'input> Runtime<'input> {
         }
         Instruction::SetPaint => {
           let c: u32 = cursor.op_stack.pop().unwrap().into();
-          *ew.get_paint_mut() = c.into();
+          ew.set_paint(c.into());
         }
         Instruction::GetPaint => {
           cursor.op_stack.push(ew.get_paint().bits().into());

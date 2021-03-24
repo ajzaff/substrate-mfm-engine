@@ -145,10 +145,8 @@ fn ewar_main(args: &Cli) {
   let mut rng = SmallRng::from_entropy();
   let mut ew = MinimalEventWindow::new(&mut rng);
   let mut cursor = Cursor::new();
-  *ew.get_mut(0).unwrap() = atom;
-  for _ in 0..2 {
-    Runtime::execute(&mut ew, &mut cursor, &runtime.code_map).expect("Failed to execute");
-  }
+  ew.set(0, atom);
+  Runtime::execute(&mut ew, &mut cursor, &runtime.code_map).expect("Failed to execute");
   debug_event_window(&ew, &mut std::io::stdout(), &runtime.type_map)
     .expect("Failed to debug event window");
 }

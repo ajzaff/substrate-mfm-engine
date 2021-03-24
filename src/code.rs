@@ -25,6 +25,8 @@ pub enum CompileError<'input> {
     ParseColorError(#[from] ParseColorError),
     #[error("unexpected node type")]
     InternalUnexpectedNodeType,
+    #[error("element is missing a name")]
+    NoName,
     #[error("max code size reached: branches are unstable")]
     MaxCodeSize,
 }
@@ -43,6 +45,7 @@ const MAGIC_NUMBER: u32 = 0x02030741;
 
 pub struct Compiler {
     build_tag: String,
+    self_name: String,
     type_map: HashMap<String, u16>,
 }
 
@@ -54,6 +57,7 @@ impl Compiler {
     pub fn new(build_tag: &str) -> Self {
         Self {
             build_tag: build_tag.to_owned(),
+            self_name: String::new(),
             type_map: Self::new_type_map(),
         }
     }
@@ -77,13 +81,14 @@ impl Compiler {
         type_map: &mut HashMap<String, u16>,
         const_map: &mut HashMap<&'input str, Const>,
         field_map: &mut HashMap<&'input str, base::FieldSelector>,
+        self_name: &mut String,
     ) -> Result<(), CompileError<'input>> {
         match n {
             Node::Metadata(i) => match i {
                 Metadata::Name(i) => {
                     let n = type_map.len();
-                    type_map.insert(i.to_owned(), n as u16);
-                    type_map.insert("Self".to_owned(), n as u16);
+                    *self_name = i.to_owned();
+                    type_map.insert(self_name.to_owned(), n as u16);
                 }
                 Metadata::Parameter(i, c) => {
                     const_map.insert(i, c);
@@ -141,7 +146,7 @@ impl Compiler {
             Node::Metadata(m) => m,
             _ => return Err(CompileError::InternalUnexpectedNodeType),
         };
-        w.write_u8(m.as_u8())?;
+        w.write_u8(m.into())?;
         match m {
             Metadata::Name(x) => Self::write_string(w, x),
             Metadata::Symbol(x) => Self::write_string(w, x),
@@ -158,7 +163,7 @@ impl Compiler {
             Metadata::Symmetries(x) => w.write_u8(x.bits() as u8).map_err(|x| x.into()),
             Metadata::Field(i, f) => {
                 Self::write_string(w, i)?;
-                w.write_u16::<BigEndian>(f.as_u16()).map_err(|x| x.into())
+                w.write_u16::<BigEndian>(f.into()).map_err(|x| x.into())
             }
             Metadata::Parameter(i, c) => {
                 Self::write_string(w, i)?;
@@ -180,17 +185,17 @@ impl Compiler {
             Node::Instruction(i) => i,
             _ => return Err(CompileError::InternalUnexpectedNodeType),
         };
-        w.write_u8(i.as_u8())?;
+        w.write_u8(i.into())?;
         match i {
             Instruction::Nop => Ok(()),
             Instruction::Exit => Ok(()),
             Instruction::SwapSites => Ok(()),
             Instruction::SetSite => Ok(()),
-            Instruction::SetField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].as_u16()),
-            Instruction::SetSiteField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].as_u16()),
+            Instruction::SetField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].into()),
+            Instruction::SetSiteField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].into()),
             Instruction::GetSite => Ok(()),
-            Instruction::GetField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].as_u16()),
-            Instruction::GetSiteField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].as_u16()),
+            Instruction::GetField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].into()),
+            Instruction::GetSiteField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].into()),
             Instruction::GetType(x) => w.write_u16::<BigEndian>(type_map[x.ast().to_owned()]),
             Instruction::GetParameter(x) => Self::write_u96(w, const_map[x.ast()]),
             Instruction::Scan => Ok(()),
@@ -288,7 +293,13 @@ impl Compiler {
         let mut field_map: HashMap<&'input str, base::FieldSelector> = Self::new_field_map();
 
         for n in ast.header.iter() {
-            Self::index_metadata_node(*n, &mut self.type_map, &mut const_map, &mut field_map)?;
+            Self::index_metadata_node(
+                *n,
+                &mut self.type_map,
+                &mut const_map,
+                &mut field_map,
+                &mut self.self_name,
+            )?;
         }
 
         let code_lines = {
@@ -308,7 +319,7 @@ impl Compiler {
         w.write_u16::<BigEndian>(Self::MINOR_VERSION)?;
         w.write_u16::<BigEndian>(Self::MAJOR_VERSION)?;
         Self::write_string(w, self.build_tag.as_str())?;
-        w.write_u16::<BigEndian>(self.type_map["Self"])?;
+        w.write_u16::<BigEndian>(self.type_map[&self.self_name])?;
 
         w.write_u8(ast.header.len() as u8)?;
         for e in ast.header.iter() {

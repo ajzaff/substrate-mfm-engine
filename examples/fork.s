@@ -5,10 +5,14 @@
 .author "Dave Ackley"
 .author "Alan Zaffetti"
 .license "GPL-2.0-or-later"
-.symmetries ALL
+.symmetries NONE
 .radius 1
 
+    rand
+    push7
+    and        ; r:=[0-7]
     push1
-    push0
-    getsite   // #0
-    setsite   // #1 = #0
+    add        ; r:=[1-8]
+    push0      ; r 0
+    getsite    ; r #0
+    setsite    ; #0 = r

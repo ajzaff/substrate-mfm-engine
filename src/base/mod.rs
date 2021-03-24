@@ -33,10 +33,6 @@ impl FieldSelector {
         offset: 0,
         length: 71,
     };
-
-    pub fn as_u16(&self) -> u16 {
-        (self.offset as u16) | (self.length as u16) << 8
-    }
 }
 
 impl From<u16> for FieldSelector {
@@ -45,6 +41,12 @@ impl From<u16> for FieldSelector {
             offset: x as u8,
             length: (x >> 8) as u8,
         }
+    }
+}
+
+impl From<FieldSelector> for u16 {
+    fn from(x: FieldSelector) -> u16 {
+        (x.offset as u16) | (x.length as u16) << 8
     }
 }
 
@@ -79,6 +81,7 @@ impl FromStr for Symmetries {
         }
     }
 }
+
 impl From<u8> for Symmetries {
     fn from(x: u8) -> Self {
         Self { bits: x }
