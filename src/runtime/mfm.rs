@@ -2,13 +2,14 @@ use crate::base;
 use crate::base::arith::Const;
 use crate::base::color;
 use crate::base::color::Color;
-use crate::base::FieldSelector;
+use crate::base::{FieldSelector, Symmetries};
 use colored::*;
 use image::RgbaImage;
 use indexmap::map::Entry;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use log::trace;
+use rand;
 use rand::RngCore;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -23,9 +24,10 @@ pub struct Metadata {
     pub radius: u8,
     pub bg_color: color::Color,
     pub fg_color: color::Color,
-    pub symmetries: base::Symmetries,
+    pub symmetries: Symmetries,
     pub field_map: HashMap<String, base::FieldSelector>,
     pub parameter_map: HashMap<String, Const>,
+    pub type_num: u16,
 }
 
 const VOID: char = ' ';
@@ -48,7 +50,12 @@ impl Metadata {
             symmetries: 0.into(),
             field_map: HashMap::new(),
             parameter_map: HashMap::new(),
+            type_num: 0,
         }
+    }
+
+    pub fn new_atom(&self) -> Const {
+        ((self.type_num as u128) << 80).into()
     }
 }
 
@@ -115,10 +122,14 @@ impl<R: RngCore> EventWindow for MinimalEventWindow<'_, R> {
 }
 
 pub trait Rand {
+    fn rand_u32(&mut self) -> u32;
     fn rand(&mut self) -> Const;
 }
 
 impl<'a, R: RngCore> Rand for MinimalEventWindow<'a, R> {
+    fn rand_u32(&mut self) -> u32 {
+        self.rng.next_u32()
+    }
     fn rand(&mut self) -> Const {
         let mut a: u128 = (self.rng.next_u64() as u128) << 64;
         a |= self.rng.next_u32() as u128;
@@ -170,6 +181,105 @@ lazy_static! {
         /* 39 = */ (0, 4),
         /* 40 = */ (4, 0),
     ];
+}
+
+fn offset_to_site(offset: &(isize, isize)) -> u8 {
+    match offset {
+        (0, 0) => 0,
+        (-1, 0) => 1,
+        (0, -1) => 2,
+        (0, 1) => 3,
+        (1, 0) => 4,
+        (-1, -1) => 5,
+        (-1, 1) => 6,
+        (1, -1) => 7,
+        (1, 1) => 8,
+        (-2, 0) => 9,
+        (0, -2) => 10,
+        (0, 2) => 11,
+        (2, 0) => 12,
+        (2, -1) => 13,
+        (2, 1) => 14,
+        (-1, -2) => 15,
+        (-1, 2) => 16,
+        (1, -2) => 17,
+        (1, 2) => 18,
+        (2, -1) => 19,
+        (2, 1) => 20,
+        (-3, 0) => 21,
+        (0, -3) => 22,
+        (0, 3) => 23,
+        (3, 0) => 24,
+        (-2, -2) => 25,
+        (-2, 2) => 26,
+        (2, -2) => 27,
+        (2, 2) => 28,
+        (-3, -1) => 29,
+        (-3, 1) => 30,
+        (-1, -3) => 31,
+        (-1, 3) => 32,
+        (1, -3) => 33,
+        (1, 3) => 34,
+        (3, -1) => 35,
+        (3, 1) => 36,
+        (-4, 0) => 37,
+        (0, -4) => 38,
+        (0, 4) => 39,
+        (4, 0) => 40,
+        i => panic!("bad offset: {:?}", i),
+    }
+}
+
+pub fn map_site(x: u8, s: Symmetries) -> u8 {
+    if let Some(mut wo) = WINDOW_OFFSETS.get(x as usize) {
+        let offset = match s {
+            Symmetries::R000L => *wo,
+            Symmetries::R090L => (wo.1, -wo.0),
+            Symmetries::R180L => (-wo.0, wo.1),
+            Symmetries::R270L => (wo.1, wo.0),
+            Symmetries::R000R => (-wo.0, wo.1),
+            Symmetries::R090R => (-wo.1, -wo.0),
+            Symmetries::R180R => (wo.0, wo.1),
+            Symmetries::R270R => (-wo.1, wo.0),
+            i => panic!("map_site: bad symmetries: {:?}", i),
+        };
+        offset_to_site(&offset)
+    } else {
+        panic!("map_site: bad site: {}", x)
+    }
+}
+
+pub fn select_symmetries(r: u32, s: Symmetries) -> Symmetries {
+    if s.is_empty() {
+        Symmetries::R000L
+    } else {
+        let i = s.bits().count_ones();
+        if i == 1 {
+            s
+        } else {
+            let mut v = s.bits();
+            let mut z = 0;
+            let mut x = r % i;
+
+            for _ in 0..8 {
+                let b = v.trailing_zeros();
+                z += b;
+                if x == 0 {
+                    return (1u8 << z).into();
+                } else {
+                    z += 1;
+                    x -= 1;
+                    v >>= b + 1;
+                }
+            }
+
+            unreachable!();
+        }
+    }
+}
+
+pub fn sample_symmetries<R: RngCore>(r: &mut R, s: Symmetries) -> Symmetries {
+    select_symmetries(r.next_u32(), s)
 }
 
 pub fn debug_event_window<T: EventWindow>(
@@ -338,6 +448,9 @@ impl<R: RngCore> EventWindow for DenseGrid<'_, R> {
 }
 
 impl<'a, R: RngCore> Rand for DenseGrid<'a, R> {
+    fn rand_u32(&mut self) -> u32 {
+        self.rng.next_u32()
+    }
     fn rand(&mut self) -> Const {
         let mut a: u128 = (self.rng.next_u64() as u128) << 64;
         a |= self.rng.next_u32() as u128;
@@ -466,6 +579,9 @@ impl<R: RngCore> EventWindow for SparseGrid<'_, R> {
 }
 
 impl<'a, R: RngCore> Rand for SparseGrid<'a, R> {
+    fn rand_u32(&mut self) -> u32 {
+        self.rng.next_u32()
+    }
     fn rand(&mut self) -> Const {
         let mut a: u128 = (self.rng.next_u64() as u128) << 64;
         a |= self.rng.next_u32() as u128;
@@ -501,5 +617,66 @@ impl<R: RngCore> Blit for SparseGrid<'_, R> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sample_none_symmetries() {
+        let mut rng = rand::rngs::mock::StepRng::new(0, 1);
+        assert_eq!(sample_symmetries(&mut rng, 0.into()), Symmetries::R000L);
+    }
+
+    #[test]
+    fn test_sample_one_symmetries() {
+        let mut rng = rand::rngs::mock::StepRng::new(0, 1);
+        assert_eq!(
+            sample_symmetries(&mut rng, Symmetries::R090L),
+            Symmetries::R090L
+        );
+        assert_eq!(
+            sample_symmetries(&mut rng, Symmetries::R090R),
+            Symmetries::R090R
+        );
+        assert_eq!(
+            sample_symmetries(&mut rng, Symmetries::R270R),
+            Symmetries::R270R
+        );
+    }
+
+    #[test]
+    fn test_sample_some_symmetries() {
+        let mut rng = rand::rngs::mock::StepRng::new(0, 1);
+        assert_eq!(
+            sample_symmetries(
+                &mut rng,
+                Symmetries::R000L | Symmetries::R090L | Symmetries::R180L
+            ),
+            Symmetries::R000L
+        );
+        assert_eq!(
+            sample_symmetries(&mut rng, Symmetries::R180L | Symmetries::R180R),
+            Symmetries::R180R
+        );
+        assert_eq!(
+            sample_symmetries(&mut rng, Symmetries::R000R | Symmetries::R090R),
+            Symmetries::R000R
+        );
+    }
+
+    #[test]
+    fn test_sample_all_symmetries() {
+        let mut rng = rand::rngs::mock::StepRng::new(0, 1);
+        assert_eq!(sample_symmetries(&mut rng, 255.into()), Symmetries::R000L);
+        assert_eq!(sample_symmetries(&mut rng, 255.into()), Symmetries::R090L);
+        assert_eq!(sample_symmetries(&mut rng, 255.into()), Symmetries::R180L);
+        assert_eq!(sample_symmetries(&mut rng, 255.into()), Symmetries::R270L);
+        assert_eq!(sample_symmetries(&mut rng, 255.into()), Symmetries::R000R);
+        assert_eq!(sample_symmetries(&mut rng, 255.into()), Symmetries::R090R);
+        assert_eq!(sample_symmetries(&mut rng, 255.into()), Symmetries::R180R);
+        assert_eq!(sample_symmetries(&mut rng, 255.into()), Symmetries::R270R);
     }
 }

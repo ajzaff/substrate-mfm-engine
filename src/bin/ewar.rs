@@ -7,7 +7,9 @@ mod base;
 #[path = "../ast.rs"]
 mod ast;
 
-use crate::runtime::mfm::{debug_event_window, EventWindow, MinimalEventWindow};
+use crate::runtime::mfm::{
+  debug_event_window, select_symmetries, EventWindow, MinimalEventWindow, Rand,
+};
 use crate::runtime::{Cursor, Runtime};
 use clap::arg_enum;
 use rand::rngs::SmallRng;
@@ -138,14 +140,15 @@ fn ewar_main(args: &Cli) {
 
   let mut file = File::open(Path::new::<String>(&args.input)).expect("Failed to open input file");
   let mut r = BufReader::new(&mut file);
-  let atom = runtime
+  let init = runtime
     .load_from_reader(&mut r)
     .expect("Failed to process input file");
 
   let mut rng = SmallRng::from_entropy();
   let mut ew = MinimalEventWindow::new(&mut rng);
-  let mut cursor = Cursor::new();
-  ew.set(0, atom);
+  let s = select_symmetries(ew.rand_u32(), init.symmetries);
+  let mut cursor = Cursor::with_symmetry(s);
+  ew.set(0, init.new_atom());
   Runtime::execute(&mut ew, &mut cursor, &runtime.code_map).expect("Failed to execute");
   debug_event_window(&ew, &mut std::io::stdout(), &runtime.type_map)
     .expect("Failed to debug event window");

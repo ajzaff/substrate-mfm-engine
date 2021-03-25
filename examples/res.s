@@ -6,19 +6,15 @@
 .author "Alan Zaffetti"
 .author "Luke Wilson"
 .license "GPL-2.0-or-later"
-.symmetries NONE
+.symmetries ALL
 .radius 1
 
-  rand
-  push7
-  and                ; r:=[0-7]
   push1
-  add                ; r:=[1-8]
-  dup                ; r r
-  getsitefield type  ; . #r.type
-  gettype "Empty"    ; . %Empty
-  equal              ; . #r.type == %Empty
+  getsitefield type  ; #1.type
+  gettype "Empty"    ; %Empty
+  equal              ; #1.type == %Empty
   jumpzero quit
-  push0              ; r 0
-  swapsites          ; r <=> 0
+  push1
+  push0
+  swapsites          ; 1 <=> 0
 quit:

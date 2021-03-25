@@ -51,7 +51,7 @@ const MAGIC_NUMBER: u32 = 0x02030741;
 #[derive(Debug)]
 pub struct Cursor {
   ip: usize,
-  symmetries: Symmetries,
+  symmetry: Symmetries,
   symmetries_stack: Vec<Symmetries>,
   call_stack: Vec<usize>,
   op_stack: Vec<Const>,
@@ -59,9 +59,13 @@ pub struct Cursor {
 
 impl Cursor {
   pub fn new() -> Self {
+    Self::with_symmetry(Symmetries::R000L)
+  }
+
+  pub fn with_symmetry(s: Symmetries) -> Self {
     Self {
       ip: 0,
-      symmetries: Symmetries::R000L,
+      symmetry: s,
       symmetries_stack: Vec::new(),
       call_stack: Vec::new(),
       op_stack: Vec::new(),
@@ -73,6 +77,15 @@ impl Cursor {
     self.symmetries_stack.clear();
     self.call_stack.clear();
     self.op_stack.clear();
+  }
+
+  fn pop(&mut self) -> Const {
+    self.op_stack.pop().unwrap()
+  }
+
+  fn pop_site(&mut self) -> usize {
+    let i: u8 = self.pop().into();
+    mfm::map_site(i, self.symmetry) as usize
   }
 }
 
@@ -264,7 +277,7 @@ impl<'input> Runtime<'input> {
     Ok(())
   }
 
-  pub fn load_from_reader<R: ReadBytesExt>(&mut self, r: &mut R) -> Result<Const, Error> {
+  pub fn load_from_reader<R: ReadBytesExt>(&mut self, r: &mut R) -> Result<mfm::Metadata, Error> {
     {
       let v = r.read_u32::<BigEndian>()?;
       if v != MAGIC_NUMBER {
@@ -297,6 +310,7 @@ impl<'input> Runtime<'input> {
 
     let type_num = r.read_u16::<BigEndian>()?;
     let mut elem = Metadata::new();
+    elem.type_num = type_num;
 
     for _ in 0..r.read_u8()? {
       Self::read_metadata(r, &mut elem)?;
@@ -312,9 +326,9 @@ impl<'input> Runtime<'input> {
 
     trace!("{:?}", code);
 
-    self.type_map.insert(type_num, elem);
+    self.type_map.insert(type_num, elem.clone());
     self.code_map.insert(type_num, code);
-    Ok(((type_num as u128) << 80).into())
+    Ok(elem)
   }
 
   pub fn execute<T: mfm::EventWindow + mfm::Rand>(
@@ -352,40 +366,40 @@ impl<'input> Runtime<'input> {
         Instruction::Nop => {}
         Instruction::Exit => break,
         Instruction::SwapSites => {
-          let j: usize = cursor.op_stack.pop().unwrap().into();
-          let i: usize = cursor.op_stack.pop().unwrap().into();
+          let j: usize = cursor.pop_site();
+          let i: usize = cursor.pop_site();
           ew.swap(i, j);
         }
         Instruction::SetSite => {
-          let c = cursor.op_stack.pop().unwrap();
-          let i: usize = cursor.op_stack.pop().unwrap().into();
+          let c = cursor.pop();
+          let i: usize = cursor.pop_site();
           ew.set(i, c);
         }
         Instruction::SetField(f) => {
-          let mut b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let mut b = cursor.pop();
+          let a = cursor.pop();
           let fi = f.runtime();
           b.truncate(fi.length);
           cursor.op_stack.push(a | (b << fi.offset));
         }
         Instruction::SetSiteField(f) => {
-          let mut c = cursor.op_stack.pop().unwrap();
-          let i: usize = cursor.op_stack.pop().unwrap().into();
+          let mut c = cursor.pop();
+          let i: usize = cursor.pop_site();
           let fi = f.runtime();
           c.truncate(fi.length);
           let a = ew.get(i);
           ew.set(i, a | (c << fi.offset))
         }
         Instruction::GetSite => {
-          let v = ew.get(cursor.op_stack.pop().unwrap().into());
+          let v = ew.get(cursor.pop_site());
           cursor.op_stack.push(v);
         }
         Instruction::GetField(f) => {
-          let a = cursor.op_stack.pop().unwrap();
+          let a = cursor.pop();
           cursor.op_stack.push(a.apply(f.runtime()));
         }
         Instruction::GetSiteField(f) => {
-          let i: usize = cursor.op_stack.pop().unwrap().into();
+          let i: usize = cursor.pop_site();
           cursor.op_stack.push(ew.get(i).apply(f.runtime()));
         }
         Instruction::GetType(x) => cursor.op_stack.push((*x.runtime()).into()),
@@ -393,11 +407,9 @@ impl<'input> Runtime<'input> {
           cursor.op_stack.push(*c.runtime());
         }
         Instruction::Scan => todo!(),
-        Instruction::SaveSymmetries => cursor.symmetries_stack.push(cursor.symmetries),
-        Instruction::UseSymmetries(x) => cursor.symmetries = x,
-        Instruction::RestoreSymmetries => {
-          cursor.symmetries = cursor.symmetries_stack.pop().unwrap()
-        }
+        Instruction::SaveSymmetries => cursor.symmetries_stack.push(cursor.symmetry),
+        Instruction::UseSymmetries(x) => cursor.symmetry = mfm::select_symmetries(ew.rand_u32(), x),
+        Instruction::RestoreSymmetries => cursor.symmetry = cursor.symmetries_stack.pop().unwrap(),
         Instruction::Push0 => cursor.op_stack.push(0u8.into()),
         Instruction::Push1 => cursor.op_stack.push(1u8.into()),
         Instruction::Push2 => cursor.op_stack.push(2u8.into()),
@@ -444,16 +456,14 @@ impl<'input> Runtime<'input> {
           cursor.op_stack.pop().expect("stack underflow");
         }
         Instruction::Dup => {
-          let t = cursor.op_stack.pop().unwrap();
+          let t = cursor.pop();
           cursor.op_stack.push(t);
           cursor.op_stack.push(t);
         }
         Instruction::Over => {
-          let ignore = cursor.op_stack.pop().unwrap();
-          let t = cursor.op_stack.pop().unwrap();
-          cursor.op_stack.push(t);
-          cursor.op_stack.push(ignore);
-          cursor.op_stack.push(t);
+          let n = cursor.op_stack.len();
+          let a = cursor.op_stack[n - 2];
+          cursor.op_stack.push(a);
         }
         Instruction::Swap => {
           let n = cursor.op_stack.len();
@@ -479,84 +489,84 @@ impl<'input> Runtime<'input> {
         }
         Instruction::Checksum => todo!(),
         Instruction::Add => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a + b);
         }
         Instruction::Sub => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a - b);
         }
         Instruction::Neg => {
-          let a = cursor.op_stack.pop().unwrap();
+          let a = cursor.pop();
           cursor.op_stack.push(-a);
         }
         Instruction::Mod => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a % b);
         }
         Instruction::Mul => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a * b);
         }
         Instruction::Div => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a / b);
         }
         Instruction::Less => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(if a < b { 1 } else { 0 }.into());
         }
         Instruction::LessEqual => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(if a <= b { 1 } else { 0 }.into());
         }
         Instruction::Or => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a | b);
         }
         Instruction::And => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a & b);
         }
         Instruction::Xor => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a ^ b);
         }
         Instruction::Equal => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(if a == b { 1 } else { 0 }.into())
         }
         Instruction::BitCount => {
-          let a = cursor.op_stack.pop().unwrap();
+          let a = cursor.pop();
           cursor.op_stack.push(a.count_ones().into());
         }
         Instruction::BitScanForward => {
-          let a = cursor.op_stack.pop().unwrap();
+          let a = cursor.pop();
           cursor.op_stack.push(a.bitscanforward().into());
         }
         Instruction::BitScanReverse => {
-          let a = cursor.op_stack.pop().unwrap();
+          let a = cursor.pop();
           cursor.op_stack.push(a.bitscanreverse().into());
         }
         Instruction::LShift => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a >> b.into()) // TODO handle b overflow
         }
         Instruction::RShift => {
-          let b = cursor.op_stack.pop().unwrap();
-          let a = cursor.op_stack.pop().unwrap();
+          let b = cursor.pop();
+          let a = cursor.pop();
           cursor.op_stack.push(a << b.into()) // TODO handle b overflow
         }
         Instruction::Jump(x) => {
@@ -564,7 +574,7 @@ impl<'input> Runtime<'input> {
           continue;
         }
         Instruction::JumpRelativeOffset => {
-          let a = cursor.op_stack.pop().unwrap();
+          let a = cursor.pop();
           assert!(!a.is_zero());
           match a {
             Const::Unsigned(x) => cursor.ip += x as usize,
@@ -585,19 +595,19 @@ impl<'input> Runtime<'input> {
           continue;
         }
         Instruction::JumpZero(x) => {
-          if cursor.op_stack.pop().unwrap().is_zero() {
+          if cursor.pop().is_zero() {
             cursor.ip = *x.runtime() as usize;
             continue;
           }
         }
         Instruction::JumpNonZero(x) => {
-          if !cursor.op_stack.pop().unwrap().is_zero() {
+          if !cursor.pop().is_zero() {
             cursor.ip = *x.runtime() as usize;
             continue;
           }
         }
         Instruction::SetPaint => {
-          let c: u32 = cursor.op_stack.pop().unwrap().into();
+          let c: u32 = cursor.pop().into();
           ew.set_paint(c.into());
         }
         Instruction::GetPaint => {
