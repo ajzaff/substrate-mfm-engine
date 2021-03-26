@@ -3,6 +3,8 @@ use std::cmp::{Eq, Ordering};
 use std::num::ParseIntError;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
 
+const BIT_SIZE: u8 = 128;
+
 #[derive(Copy, Clone, Debug)]
 pub enum Const {
     Unsigned(u128),
@@ -52,19 +54,6 @@ impl Const {
         }
     }
 
-    fn as_u128_saturating(&self) -> u128 {
-        match self {
-            Self::Unsigned(x) => *x,
-            Self::Signed(x) => {
-                if *x < 0 {
-                    0
-                } else {
-                    *x as u128
-                }
-            }
-        }
-    }
-
     fn i128_saturating(x: u128) -> i128 {
         if x > i128::MAX as u128 {
             i128::MAX
@@ -93,44 +82,33 @@ impl Const {
         }
     }
 
-    /// truncate the Const to i bits saturating the underflow or overflow.
-    pub fn truncate(&mut self, i: u8) {
-        assert_ne!(i, 0);
-
-        if !self.is_neg() {
-            let v = self.as_u128_bits();
-            match self {
-                Self::Unsigned(x) => {
-                    if v >= 1u128 << i {
-                        *x = (1u128 << i) - 1;
-                    }
-                }
-                Self::Signed(x) => {
-                    if i == 1 {
-                        *x = 0
-                    } else if v >= 1u128 << i - 1 {
-                        *x = ((1u128 << i - 1) - 1) as i128;
-                    }
-                }
-            }
-            return;
-        }
-
-        if let Self::Signed(x) = self {
-            if i == 1 {
-                *x = 0
-            } else if *x < -1i128 << i - 1 {
-                *x = -1i128 << i - 1;
-            }
-            return;
-        }
-        unreachable!();
-    }
-
     pub fn apply(self, f: &FieldSelector) -> Const {
-        let mut x = (self >> f.offset) & ((1u128 << f.length) - 1).into();
-        x.truncate(f.length);
-        x
+        match self {
+            Self::Unsigned(mut x) => {
+                if f.length == 0 {
+                    0u128.into()
+                } else {
+                    x <<= BIT_SIZE - f.offset - f.length;
+                    x >>= BIT_SIZE - f.offset - f.length;
+                    x &= (1u128 << f.length) - 1;
+                    x.into()
+                }
+            }
+            Self::Signed(mut x) => {
+                if f.length <= 1 {
+                    0i128.into()
+                } else {
+                    x <<= BIT_SIZE - f.offset - f.length;
+                    x >>= BIT_SIZE - f.offset - f.length;
+                    let sign = x & (1i128 << (f.offset + f.length - 1) as i128) != 0;
+                    x &= (1i128 << f.length - 1) - 1;
+                    if sign {
+                        x = -x;
+                    }
+                    x.into()
+                }
+            }
+        }
     }
 
     pub fn from_str_radix(src: &str, radix: u32) -> Result<Self, ParseIntError> {
@@ -455,70 +433,92 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn test_truncate_unsigned_panic() {
-        let mut x = Const::Unsigned(1);
-        x.truncate(0);
-    }
+    fn test_apply_unsigned_offset0() {
+        let mut x = Const::Unsigned(1).apply(&FieldSelector {
+            offset: 0,
+            length: 0,
+        });
+        assert_eq!(x, Const::Unsigned(0));
 
-    #[test]
-    fn test_truncate_unsigned() {
-        let mut x = Const::Unsigned(1);
-        x.truncate(1);
+        let mut x = Const::Unsigned(1).apply(&FieldSelector {
+            offset: 0,
+            length: 1,
+        });
         assert_eq!(x, Const::Unsigned(1));
 
-        x = Const::Unsigned(2);
-        x.truncate(1);
-        assert_eq!(x, Const::Unsigned(1));
+        x = Const::Unsigned(2).apply(&FieldSelector {
+            offset: 0,
+            length: 1,
+        });
+        assert_eq!(x, Const::Unsigned(0));
 
-        x = Const::Unsigned(2);
-        x.truncate(3);
+        x = Const::Unsigned(2).apply(&FieldSelector {
+            offset: 0,
+            length: 3,
+        });
         assert_eq!(x, Const::Unsigned(2));
 
-        x = Const::Unsigned(1 << 64);
-        x.truncate(20);
-        assert_eq!(x, Const::Unsigned((1 << 20) - 1));
+        x = Const::Unsigned(1 << 64).apply(&FieldSelector {
+            offset: 0,
+            length: 20,
+        });
+        assert_eq!(x, Const::Unsigned(0));
     }
 
     #[test]
-    #[should_panic]
-    fn test_truncate_signed_panic() {
-        let mut x = Const::Signed(1);
-        x.truncate(0);
-    }
-
-    #[test]
-    fn test_truncate_signed() {
-        let mut x = Const::Signed(1);
-        x.truncate(1);
+    fn test_apply_signed_offset0() {
+        let mut x = Const::Signed(-1).apply(&FieldSelector {
+            offset: 0,
+            length: 0,
+        });
         assert_eq!(x, Const::Signed(0));
 
-        x = Const::Signed(2);
-        x.truncate(1);
+        x = Const::Signed(-1).apply(&FieldSelector {
+            offset: 0,
+            length: 1,
+        });
         assert_eq!(x, Const::Signed(0));
 
-        x = Const::Signed(2);
-        x.truncate(3);
+        x = Const::Signed(2).apply(&FieldSelector {
+            offset: 0,
+            length: 1,
+        });
+        assert_eq!(x, Const::Signed(0));
+
+        x = Const::Signed(2).apply(&FieldSelector {
+            offset: 0,
+            length: 3,
+        });
         assert_eq!(x, Const::Signed(2));
 
-        x = Const::Signed(1 << 64);
-        x.truncate(20);
-        assert_eq!(x, Const::Signed((1 << 19) - 1));
-
-        x = Const::Signed(-1);
-        x.truncate(1);
+        x = Const::Signed(1 << 64).apply(&FieldSelector {
+            offset: 0,
+            length: 20,
+        });
         assert_eq!(x, Const::Signed(0));
 
-        x = Const::Signed(-2);
-        x.truncate(1);
+        x = Const::Signed(-1).apply(&FieldSelector {
+            offset: 0,
+            length: 1,
+        });
         assert_eq!(x, Const::Signed(0));
 
-        x = Const::Signed(-2);
-        x.truncate(3);
+        x = Const::Signed(-2).apply(&FieldSelector {
+            offset: 0,
+            length: 1,
+        });
+        assert_eq!(x, Const::Signed(0));
+
+        x = Const::Signed(-2).apply(&FieldSelector {
+            offset: 0,
+            length: 3,
+        });
         assert_eq!(x, Const::Signed(-2));
 
-        x = Const::Signed(-1 << 64);
-        x.truncate(20);
-        assert_eq!(x, Const::Signed(-1 << 19));
+        x = Const::Signed(-1 << 64).apply(&FieldSelector {
+            offset: 0,
+            length: 20,
+        });
+        assert_eq!(x, Const::Signed(0));
     }
 }

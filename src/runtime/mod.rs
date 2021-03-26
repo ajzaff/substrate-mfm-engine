@@ -376,19 +376,17 @@ impl<'input> Runtime<'input> {
           ew.set(i, c);
         }
         Instruction::SetField(f) => {
-          let mut b = cursor.pop();
+          let c = cursor.pop();
           let a = cursor.pop();
           let fi = f.runtime();
-          b.truncate(fi.length);
-          cursor.op_stack.push(a | (b << fi.offset));
+          cursor.op_stack.push(a | (c.apply(fi) << fi.offset));
         }
         Instruction::SetSiteField(f) => {
-          let mut c = cursor.pop();
+          let c = cursor.pop();
           let i: usize = cursor.pop_site();
           let fi = f.runtime();
-          c.truncate(fi.length);
           let a = ew.get(i);
-          ew.set(i, a | (c << fi.offset))
+          ew.set(i, a | (c.apply(fi) << fi.offset))
         }
         Instruction::GetSite => {
           let v = ew.get(cursor.pop_site());
