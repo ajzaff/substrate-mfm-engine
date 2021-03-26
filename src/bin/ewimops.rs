@@ -106,8 +106,8 @@ fn ewimops_main(args: &Cli) {
     let (width, height) = image.dimensions();
     let mut ew = SparseGrid::new(&mut rng, (width as usize, height as usize));
     ew.blit_image(&image.into_rgba8());
+    ew.set(0, init.new_atom());
     for _ in 0..1000000 {
-        ew.set(0, init.new_atom());
         let mut cursor = Cursor::new();
         Runtime::execute(&mut ew, &mut cursor, &runtime.code_map).expect("Failed to execute");
         ew.reset();
