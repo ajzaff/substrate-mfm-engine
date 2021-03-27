@@ -233,7 +233,7 @@ fn offset_to_site(offset: &(isize, isize)) -> u8 {
 }
 
 pub fn map_site(x: u8, s: Symmetries) -> u8 {
-    if let Some(mut wo) = WINDOW_OFFSETS.get(x as usize) {
+    if let Some(wo) = WINDOW_OFFSETS.get(x as usize) {
         let offset = match s {
             Symmetries::R000L => *wo,
             Symmetries::R090L => (wo.1, -wo.0),
