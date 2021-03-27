@@ -55,7 +55,9 @@ impl Metadata {
     }
 
     pub fn new_atom(&self) -> Const {
-        ((self.type_num as u128) << 80).into()
+        let mut a = Const::Unsigned(0);
+        a.store(self.type_num.into(), &FieldSelector::TYPE);
+        a
     }
 }
 

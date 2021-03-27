@@ -89,7 +89,7 @@ impl Const {
                     0u128.into()
                 } else {
                     x <<= BIT_SIZE - f.offset - f.length;
-                    x >>= BIT_SIZE - f.offset - f.length;
+                    x >>= BIT_SIZE - f.length;
                     x &= (1u128 << f.length) - 1;
                     x.into()
                 }
@@ -99,7 +99,7 @@ impl Const {
                     0i128.into()
                 } else {
                     x <<= BIT_SIZE - f.offset - f.length;
-                    x >>= BIT_SIZE - f.offset - f.length;
+                    x >>= BIT_SIZE - f.length;
                     let sign = x & (1i128 << (f.offset + f.length - 1) as i128) != 0;
                     x &= (1i128 << f.length - 1) - 1;
                     if sign {
@@ -108,6 +108,20 @@ impl Const {
                     x.into()
                 }
             }
+        }
+    }
+
+    pub fn store(&mut self, x: Const, f: &FieldSelector) {
+        let mut a = self.as_u128_bits();
+        let mut mask = (1u128 << f.length) - 1;
+        let mut b = x.as_u128_bits() & mask;
+        mask <<= f.offset;
+        b <<= f.offset;
+        // From https://graphics.stanford.edu/~seander/bithacks.html#MaskedMerge.
+        a ^= (a ^ b) & mask;
+        match self {
+            Self::Unsigned(x) => *x = a,
+            Self::Signed(x) => *x = a as i128,
         }
     }
 
@@ -433,14 +447,14 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_unsigned_offset0() {
+    fn test_apply_unsigned() {
         let mut x = Const::Unsigned(1).apply(&FieldSelector {
             offset: 0,
             length: 0,
         });
         assert_eq!(x, Const::Unsigned(0));
 
-        let mut x = Const::Unsigned(1).apply(&FieldSelector {
+        x = Const::Unsigned(1).apply(&FieldSelector {
             offset: 0,
             length: 1,
         });
@@ -463,6 +477,9 @@ mod tests {
             length: 20,
         });
         assert_eq!(x, Const::Unsigned(0));
+
+        x = Const::Unsigned(1208925819614629174706176).apply(&FieldSelector::TYPE); // type = 1
+        assert_eq!(x, Const::Unsigned(1));
     }
 
     #[test]
@@ -520,5 +537,38 @@ mod tests {
             length: 20,
         });
         assert_eq!(x, Const::Signed(0));
+    }
+
+    #[test]
+    fn test_store_unsigned() {
+        let mut x = Const::Unsigned(1);
+        x.store(
+            Const::Unsigned(0),
+            &FieldSelector {
+                offset: 0,
+                length: 1,
+            },
+        );
+        assert_eq!(x, Const::Unsigned(0));
+
+        let mut x = Const::Unsigned(1);
+        x.store(
+            Const::Unsigned(1),
+            &FieldSelector {
+                offset: 1,
+                length: 1,
+            },
+        );
+        assert_eq!(x, Const::Unsigned(3));
+
+        let mut x = Const::Unsigned(0b110101);
+        x.store(
+            Const::Unsigned(0b10101101),
+            &FieldSelector {
+                offset: 1,
+                length: 4,
+            },
+        );
+        assert_eq!(x, Const::Unsigned(0b111011));
     }
 }
