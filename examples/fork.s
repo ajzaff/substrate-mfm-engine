@@ -11,4 +11,4 @@
     push1
     push0
     getsite
-    setsite    ; #0 = #1
+    setsite    ; #1 = #0

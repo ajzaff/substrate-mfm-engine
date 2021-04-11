@@ -171,6 +171,8 @@ Numbered arguments presented in reverse-polish come from the stack. Named argume
 |`[0] getsite`|Get the numbered site `[0]` and push the value onto the stack.|
 |`[0] getfield [FIELD]`|Gets the field of the value `[0]` (i.e. `[0].[FIELD]`).|
 |`[0] getsitefield [FIELD]`|Gets the field of the numbered site `[0].[FIELD]`.|
+|`[0] getsignedfield [FIELD]`|Gets the field of the value `[0]` (i.e. `[0].[FIELD]`).|
+|`[0] getsignedsitefield [FIELD]`|Gets the field of the numbered site `[0].[FIELD]`.|
 |`gettype [TYPE]`|Gets the named type `[TYPE]` and pushes the value onto the stack.|
 |`getparameter [PARAM]`|Gets the named const `[PARAM]` and pushes the value onto the stack.|
 |`[0] scan`|Scan the event window for atoms of type `[0]`. Store the resulting presence bitmask on the stack.|

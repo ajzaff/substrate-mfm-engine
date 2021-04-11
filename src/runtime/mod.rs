@@ -40,10 +40,14 @@ pub enum Error {
   StackUnderflow, // TODO: add context
 }
 
-pub fn load_from_bytes<'input>(bytes: &'input mut &[u8]) -> Result<Runtime<'input>, Error> {
-  let mut r = Runtime::new();
-  r.load_from_reader(bytes)?;
-  Ok(r)
+pub trait RuntimeImpl {
+  fn pop() -> Option<Const>;
+  fn pop_site() -> Option<usize>;
+  fn push(x: Const);
+  fn save_symmetries();
+  fn use_symmetries(x: Symmetries);
+  fn restore_symmetries();
+  fn get(i: usize) -> Option<Const>;
 }
 
 const MAGIC_NUMBER: u32 = 0x02030741;
@@ -72,8 +76,9 @@ impl Cursor {
     }
   }
 
-  fn reset(&mut self) {
+  pub fn reset(&mut self, s: Symmetries) {
     self.ip = 0;
+    self.symmetry = s;
     self.symmetries_stack.clear();
     self.call_stack.clear();
     self.op_stack.clear();
@@ -191,86 +196,88 @@ impl<'input> Runtime<'input> {
       6 => Instruction::GetSite,                                                       // GetSite
       7 => Instruction::GetField(Arg::Runtime(r.read_u16::<BigEndian>()?.into())),     // GetField
       8 => Instruction::GetSiteField(Arg::Runtime(r.read_u16::<BigEndian>()?.into())), // GetSiteField
-      9 => Instruction::GetType(Arg::Runtime(r.read_u16::<BigEndian>()?)),             // GetType
-      10 => Instruction::GetParameter(Arg::Runtime(Self::read_const(r)?)), // GetParamter
-      11 => Instruction::Scan,                                             // Scan
-      12 => Instruction::SaveSymmetries,                                   // SaveSymmetries
-      13 => Instruction::UseSymmetries(r.read_u8()?.into()),               // UseSymmetries
-      14 => Instruction::RestoreSymmetries,                                // RestoreSymmetries
-      15 => Instruction::Push0,                                            // Push0
-      16 => Instruction::Push1,                                            // Push1
-      17 => Instruction::Push2,                                            // Push2
-      18 => Instruction::Push3,                                            // Push3
-      19 => Instruction::Push4,                                            // Push4
-      20 => Instruction::Push5,                                            // Push5
-      21 => Instruction::Push6,                                            // Push6
-      22 => Instruction::Push7,                                            // Push7
-      23 => Instruction::Push8,                                            // Push8
-      24 => Instruction::Push9,                                            // Push9
-      25 => Instruction::Push10,                                           // Push10
-      26 => Instruction::Push11,                                           // Push11
-      27 => Instruction::Push12,                                           // Push12
-      28 => Instruction::Push13,                                           // Push13
-      29 => Instruction::Push14,                                           // Push14
-      30 => Instruction::Push15,                                           // Push15
-      31 => Instruction::Push16,                                           // Push16
-      32 => Instruction::Push17,                                           // Push17
-      33 => Instruction::Push18,                                           // Push18
-      34 => Instruction::Push19,                                           // Push19
-      35 => Instruction::Push20,                                           // Push20
-      36 => Instruction::Push21,                                           // Push21
-      37 => Instruction::Push22,                                           // Push22
-      38 => Instruction::Push23,                                           // Push23
-      39 => Instruction::Push24,                                           // Push24
-      40 => Instruction::Push25,                                           // Push25
-      41 => Instruction::Push26,                                           // Push26
-      42 => Instruction::Push27,                                           // Push27
-      43 => Instruction::Push28,                                           // Push28
-      44 => Instruction::Push29,                                           // Push29
-      45 => Instruction::Push30,                                           // Push30
-      46 => Instruction::Push31,                                           // Push31
-      47 => Instruction::Push32,                                           // Push32
-      48 => Instruction::Push33,                                           // Push33
-      49 => Instruction::Push34,                                           // Push34
-      50 => Instruction::Push35,                                           // Push35
-      51 => Instruction::Push36,                                           // Push36
-      52 => Instruction::Push37,                                           // Push37
-      53 => Instruction::Push38,                                           // Push38
-      54 => Instruction::Push39,                                           // Push39
-      55 => Instruction::Push40,                                           // Push40
-      56 => Instruction::Push(Self::read_const(r)?),                       // Push
-      57 => Instruction::Pop,                                              // Pop
-      58 => Instruction::Dup,                                              // Dup
-      59 => Instruction::Over,                                             // Over
-      60 => Instruction::Swap,                                             // Swap
-      61 => Instruction::Rot,                                              // Rot
-      62 => Instruction::Call(Arg::Runtime(r.read_u16::<BigEndian>()?)),   // Call
-      63 => Instruction::Ret,                                              // Ret
-      64 => Instruction::Checksum,                                         // Checksum
-      65 => Instruction::Add,                                              // Add
-      66 => Instruction::Sub,                                              // Sub
-      67 => Instruction::Neg,                                              // Neg
-      68 => Instruction::Mod,                                              // Mod
-      69 => Instruction::Mul,                                              // Mul
-      70 => Instruction::Div,                                              // Div
-      71 => Instruction::Less,                                             // Less
-      72 => Instruction::LessEqual,                                        // LessEqual
-      73 => Instruction::Or,                                               // Or
-      74 => Instruction::And,                                              // And
-      75 => Instruction::Xor,                                              // Xor
-      76 => Instruction::Equal,                                            // Equal
-      77 => Instruction::BitCount,                                         // BitCount
-      78 => Instruction::BitScanForward,                                   // BitScanForward
-      79 => Instruction::BitScanReverse,                                   // BitScanReverse
-      80 => Instruction::LShift,                                           // LShift
-      81 => Instruction::RShift,                                           // RShift
-      82 => Instruction::Jump(Arg::Runtime(r.read_u16::<BigEndian>()?)),   // Jump
-      83 => Instruction::JumpRelativeOffset,                               // JumpRelativeOffset
-      84 => Instruction::JumpZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpZero
-      85 => Instruction::JumpNonZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpNonZero
-      86 => Instruction::SetPaint,
-      87 => Instruction::GetPaint,
-      88 => Instruction::Rand,
+      9 => Instruction::GetSignedField(Arg::Runtime(r.read_u16::<BigEndian>()?.into())), // GetSignedField
+      10 => Instruction::GetSignedSiteField(Arg::Runtime(r.read_u16::<BigEndian>()?.into())), // GetSignedSiteField
+      11 => Instruction::GetType(Arg::Runtime(r.read_u16::<BigEndian>()?)), // GetType
+      12 => Instruction::GetParameter(Arg::Runtime(Self::read_const(r)?)),  // GetParamter
+      13 => Instruction::Scan,                                              // Scan
+      14 => Instruction::SaveSymmetries,                                    // SaveSymmetries
+      15 => Instruction::UseSymmetries(r.read_u8()?.into()),                // UseSymmetries
+      16 => Instruction::RestoreSymmetries,                                 // RestoreSymmetries
+      17 => Instruction::Push0,                                             // Push0
+      18 => Instruction::Push1,                                             // Push1
+      19 => Instruction::Push2,                                             // Push2
+      20 => Instruction::Push3,                                             // Push3
+      21 => Instruction::Push4,                                             // Push4
+      22 => Instruction::Push5,                                             // Push5
+      23 => Instruction::Push6,                                             // Push6
+      24 => Instruction::Push7,                                             // Push7
+      25 => Instruction::Push8,                                             // Push8
+      26 => Instruction::Push9,                                             // Push9
+      27 => Instruction::Push10,                                            // Push10
+      28 => Instruction::Push11,                                            // Push11
+      29 => Instruction::Push12,                                            // Push12
+      30 => Instruction::Push13,                                            // Push13
+      31 => Instruction::Push14,                                            // Push14
+      32 => Instruction::Push15,                                            // Push15
+      33 => Instruction::Push16,                                            // Push16
+      34 => Instruction::Push17,                                            // Push17
+      35 => Instruction::Push18,                                            // Push18
+      36 => Instruction::Push19,                                            // Push19
+      37 => Instruction::Push20,                                            // Push20
+      38 => Instruction::Push21,                                            // Push21
+      39 => Instruction::Push22,                                            // Push22
+      40 => Instruction::Push23,                                            // Push23
+      41 => Instruction::Push24,                                            // Push24
+      42 => Instruction::Push25,                                            // Push25
+      43 => Instruction::Push26,                                            // Push26
+      44 => Instruction::Push27,                                            // Push27
+      45 => Instruction::Push28,                                            // Push28
+      46 => Instruction::Push29,                                            // Push29
+      47 => Instruction::Push30,                                            // Push30
+      48 => Instruction::Push31,                                            // Push31
+      49 => Instruction::Push32,                                            // Push32
+      50 => Instruction::Push33,                                            // Push33
+      51 => Instruction::Push34,                                            // Push34
+      52 => Instruction::Push35,                                            // Push35
+      53 => Instruction::Push36,                                            // Push36
+      54 => Instruction::Push37,                                            // Push37
+      55 => Instruction::Push38,                                            // Push38
+      56 => Instruction::Push39,                                            // Push39
+      57 => Instruction::Push40,                                            // Push40
+      58 => Instruction::Push(Self::read_const(r)?),                        // Push
+      59 => Instruction::Pop,                                               // Pop
+      60 => Instruction::Dup,                                               // Dup
+      61 => Instruction::Over,                                              // Over
+      62 => Instruction::Swap,                                              // Swap
+      63 => Instruction::Rot,                                               // Rot
+      64 => Instruction::Call(Arg::Runtime(r.read_u16::<BigEndian>()?)),    // Call
+      65 => Instruction::Ret,                                               // Ret
+      66 => Instruction::Checksum,                                          // Checksum
+      67 => Instruction::Add,                                               // Add
+      68 => Instruction::Sub,                                               // Sub
+      69 => Instruction::Neg,                                               // Neg
+      70 => Instruction::Mod,                                               // Mod
+      71 => Instruction::Mul,                                               // Mul
+      72 => Instruction::Div,                                               // Div
+      73 => Instruction::Less,                                              // Less
+      74 => Instruction::LessEqual,                                         // LessEqual
+      75 => Instruction::Or,                                                // Or
+      76 => Instruction::And,                                               // And
+      77 => Instruction::Xor,                                               // Xor
+      78 => Instruction::Equal,                                             // Equal
+      79 => Instruction::BitCount,                                          // BitCount
+      80 => Instruction::BitScanForward,                                    // BitScanForward
+      81 => Instruction::BitScanReverse,                                    // BitScanReverse
+      82 => Instruction::LShift,                                            // LShift
+      83 => Instruction::RShift,                                            // RShift
+      84 => Instruction::Jump(Arg::Runtime(r.read_u16::<BigEndian>()?)),    // Jump
+      85 => Instruction::JumpRelativeOffset,                                // JumpRelativeOffset
+      86 => Instruction::JumpZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpZero
+      87 => Instruction::JumpNonZero(Arg::Runtime(r.read_u16::<BigEndian>()?)), // JumpNonZero
+      88 => Instruction::SetPaint,
+      89 => Instruction::GetPaint,
+      90 => Instruction::Rand,
       i => return Err(Error::BadInstructionOpCode(i)),
     };
     code.push(instr);
@@ -341,7 +348,6 @@ impl<'input> Runtime<'input> {
     let code = code_map
       .get(&my_type)
       .ok_or(Error::UnknownElement(my_type))?;
-    cursor.reset();
     loop {
       if cursor.ip >= code.len() {
         // Handle implicit Ret:
@@ -401,6 +407,15 @@ impl<'input> Runtime<'input> {
         Instruction::GetSiteField(f) => {
           let i: usize = cursor.pop_site();
           cursor.op_stack.push(ew.get(i).apply(f.runtime()));
+        }
+        Instruction::GetSignedField(f) => {
+          let i: i128 = cursor.pop().apply(f.runtime()).into();
+          cursor.op_stack.push(i.into());
+        }
+        Instruction::GetSignedSiteField(f) => {
+          let i: usize = cursor.pop_site();
+          let i: i128 = ew.get(i).apply(f.runtime()).into();
+          cursor.op_stack.push(i.into());
         }
         Instruction::GetType(x) => cursor.op_stack.push((*x.runtime()).into()),
         Instruction::GetParameter(c) => {

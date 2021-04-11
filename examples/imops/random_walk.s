@@ -5,7 +5,7 @@
 .bgcolor "000"
 .author "Alan Zaffetti"
 .license "GPL-2.0-or-later"
-.symmetries NONE
+.symmetries ALL
 .radius 1
 
 ; RandomWalk is intended as a "Hello World" to demonstrate the imops capability.
@@ -20,10 +20,6 @@ paint:
   or
   setpaint
 diffuse:
-  rand
-  push7
-  and           ; r := [0-7]
   push1
-  add           ; r := [1-8]
   push0
-  swapsites     ; swap #r #0
+  swapsites     ; #1 <=> #0

@@ -196,6 +196,10 @@ impl Compiler {
             Instruction::GetSite => Ok(()),
             Instruction::GetField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].into()),
             Instruction::GetSiteField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].into()),
+            Instruction::GetSignedField(x) => w.write_u16::<BigEndian>(field_map[x.ast()].into()),
+            Instruction::GetSignedSiteField(x) => {
+                w.write_u16::<BigEndian>(field_map[x.ast()].into())
+            }
             Instruction::GetType(x) => w.write_u16::<BigEndian>(type_map[x.ast().to_owned()]),
             Instruction::GetParameter(x) => Self::write_u96(w, const_map[x.ast()]),
             Instruction::Scan => Ok(()),

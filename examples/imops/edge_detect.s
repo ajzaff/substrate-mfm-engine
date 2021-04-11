@@ -111,21 +111,21 @@ convolve_loop:
   over                         ; ...            #i.paint
   getfield r                   ; ...            #i.r
   over
-  getfield rr                  ; ...            #i.r acc.rr
+  getsignedfield rr            ; ...            #i.r acc.rr
   add
   setfield rr                  ; ...        acc.rr += i.r
                                ; green:
   over                         ; ...            #i.paint
   getfield g                   ; ...            #i.g
   over                         ;                #i.g acc
-  getfield gg                  ; ...            #i.g acc.gg
+  getsignedfield gg            ; ...            #i.g acc.gg
   add
   setfield gg                  ; ...        acc.gg += i.g
                                ; blue:
   over                         ; ...            #i.paint
   getfield r                   ; ...            #i.b
   over
-  getfield rr                  ; ...            #i.b acc.bb
+  getsignedfield rr            ; ...            #i.b acc.bb
   add
   setfield rr                  ; ...        acc.bb += i.b
   rot                          ; acc i #i.paint
@@ -137,15 +137,15 @@ convolve_loop:
   pop                          ; acc
                                ; Negate each color channel:
   dup                          ; red:
-  getfield rr
+  getsignedfield rr
   neg
   setfield rr                  ; acc.rr = -acc.rr
   dup                          ; green:
-  getfield rr
+  getsignedfield gg
   neg
-  setfield rr                  ; acc.gg = -acc.gg
+  setfield gg                  ; acc.gg = -acc.gg
   dup                          ; blue:
-  getfield bb
+  getsignedfield bb
   neg
   setfield bb                  ; acc.bb = -acc.bb
 

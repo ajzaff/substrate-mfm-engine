@@ -7,7 +7,7 @@ mod base;
 #[path = "../ast.rs"]
 mod ast;
 
-use crate::runtime::mfm::{DenseGrid, EventWindow, SparseGrid};
+use crate::runtime::mfm::{select_symmetries, DenseGrid, EventWindow, Rand, SparseGrid};
 use crate::runtime::{Cursor, Runtime};
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView};
@@ -107,10 +107,11 @@ fn ewimops_main(args: &Cli) {
     let mut ew = SparseGrid::new(&mut rng, (width as usize, height as usize));
     ew.blit_image(&image.into_rgba8());
     ew.set(0, init.new_atom());
-    for _ in 0..1000000 {
-        let mut cursor = Cursor::new();
+    let mut cursor = Cursor::with_symmetry(select_symmetries(ew.rand_u32(), init.symmetries));
+    for _ in 0..10000000 {
         Runtime::execute(&mut ew, &mut cursor, &runtime.code_map).expect("Failed to execute");
         ew.reset();
+        cursor.reset(select_symmetries(ew.rand_u32(), init.symmetries));
     }
     if let Some(output) = &args.output {
         let mut im = DynamicImage::new_rgba8(width, height);
